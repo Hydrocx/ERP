@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Trang chủ{% endblock %}
+{% block content %}
+<section class="hero card">
+    <h1>Mini ERP – Quản lý kho & đơn hàng tích hợp AI</h1>
+    <p class="muted">Danh mục · Mua hàng · Bán hàng · Tồn kho · Dự báo nhập hàng · Báo cáo AI · Trợ lý hỏi đáp dữ liệu</p>
+    {% if user.is_authenticated %}
+        <p><a class="btn" href="{% url 'dashboard:home' %}">Mở dashboard</a>
+           {% if perms.wagtailadmin.access_admin %}<a class="btn btn-light" href="/admin/">Trang quản trị</a>{% endif %}</p>
+    {% else %}
+        <p><a class="btn" href="{% url 'login' %}">Đăng nhập</a></p>
+    {% endif %}
+</section>
+{% endblock %}

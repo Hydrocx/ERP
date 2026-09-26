@@ -1,0 +1,33 @@
+{% extends "wagtailadmin/generic/inspect.html" %}
+{% load l10n %}
+
+{% block fields_output %}
+    {% if document_actions %}
+        <div class="erp-actions" style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:1.5rem;">
+            {% for a in document_actions %}
+                {% if a.method == "get" %}
+                    <a class="button {{ a.style }}" href="{{ a.url }}">{{ a.label }}</a>
+                {% else %}
+                    <form method="post" action="{{ a.url }}"{% if a.confirm %} onsubmit="return confirm('{{ a.confirm|escapejs }}');"{% endif %}>
+                        {% csrf_token %}
+                        <button type="submit" class="button {{ a.style }}">{{ a.label }}</button>
+                    </form>
+                {% endif %}
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    {{ block.super }}
+
+    {% if line_rows %}
+        <h2 class="w-h3" style="margin-top:2rem;">Dòng hàng</h2>
+        <table class="listing">
+            <thead><tr>{% for h in line_headers %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+            <tbody>
+                {% for row in line_rows %}
+                    <tr>{% for cell in row %}<td>{{ cell|localize }}</td>{% endfor %}</tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+{% endblock %}

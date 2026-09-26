@@ -1,0 +1,23 @@
+<section class="panel summary nice-padding" aria-labelledby="erp-alerts-title" style="margin-bottom:2rem;">
+    <h2 id="erp-alerts-title" class="w-h3">Cảnh báo tồn kho & việc cần xử lý</h2>
+    <ul style="display:flex; gap:2rem; flex-wrap:wrap; list-style:none; padding:0;">
+        <li><strong style="font-size:1.6rem; color:#b00020;">{{ out_count }}</strong><br>vị trí hết hàng</li>
+        <li><strong style="font-size:1.6rem; color:#0069ba;">{{ low_count }}</strong><br>vị trí ≤ ROP</li>
+        <li><strong style="font-size:1.6rem; color:#000080;">{{ pending_suggestions }}</strong><br><a href="{{ reorder_url }}">đề xuất nhập hàng chờ duyệt</a></li>
+        <li><strong style="font-size:1.6rem;">{{ po_draft }}</strong><br>PO nháp chờ duyệt</li>
+        <li><strong style="font-size:1.6rem;">{{ so_open }}</strong><br>SO chưa giao</li>
+    </ul>
+    {% if items %}
+        <table class="listing">
+            <thead><tr><th>Sản phẩm</th><th>Kho</th><th>Khả dụng</th><th>ROP</th><th>Tình trạng</th></tr></thead>
+            <tbody>
+            {% for lv in items %}
+                <tr><td>{{ lv.product }}</td><td>{{ lv.warehouse.code }}</td><td>{{ lv.available }}</td>
+                    <td>{{ lv.effective_reorder_point }}</td><td>{{ lv.status }}</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+        <p><a class="button button-small button-secondary" href="{{ stock_url }}">Xem toàn bộ tồn kho</a>
+           <a class="button button-small" href="{{ app_url }}">Mở dashboard ERP</a></p>
+    {% endif %}
+</section>

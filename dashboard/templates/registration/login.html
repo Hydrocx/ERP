@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Đăng nhập{% endblock %}
+{% block content %}
+<div class="card login-card">
+    <h1>Đăng nhập</h1>
+    {% if form.errors %}<p class="msg msg-error">Sai tên đăng nhập hoặc mật khẩu.</p>{% endif %}
+    <form method="post">
+        {% csrf_token %}
+        <p><label for="id_username">Tên đăng nhập</label>{{ form.username }}</p>
+        <p><label for="id_password">Mật khẩu</label>{{ form.password }}</p>
+        <input type="hidden" name="next" value="{{ next }}">
+        <p><button class="btn" type="submit">Đăng nhập</button></p>
+    </form>
+</div>
+{% endblock %}

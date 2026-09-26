@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+{% block title %}Dashboard{% endblock %}
+{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>{% endblock %}
+{% block content %}
+<div class="toolbar"><h1>Tổng quan · tháng {{ today|date:"m/Y" }}</h1><span class="muted small">Cập nhật {{ today|date:"d/m/Y" }}</span></div>
+
+<div class="grid grid-kpi">
+    <div class="card kpi"><div class="label">Doanh thu tháng này</div><div class="value">{{ sales.revenue|vnd_short }}</div>
+        <div class="sub">{% if revenue_change is not None %}<span class="{% if revenue_change >= 0 %}up{% else %}down{% endif %}">{{ revenue_change|pct }}</span> so với cùng kỳ tháng trước{% endif %}</div></div>
+    <div class="card kpi"><div class="label">Lợi nhuận gộp</div><div class="value">{{ sales.gross_profit|vnd_short }}</div>
+        <div class="sub">Biên {{ sales.gross_margin_pct|default_if_none:"–" }}% · {{ sales.orders_shipped }} đơn đã giao</div></div>
+    <div class="card kpi"><div class="label">Giá trị tồn kho</div><div class="value">{{ inventory.inventory_value|vnd_short }}</div>
+        <div class="sub">{{ inventory.sku_locations }} vị trí SP–kho</div></div>
+    <div class="card kpi"><div class="label">Cảnh báo tồn</div><div class="value"><span class="down">{{ inventory.out_of_stock }}</span> / {{ inventory.below_reorder_point }}</div>
+        <div class="sub">hết hàng / dưới ROP</div></div>
+    <div class="card kpi"><div class="label">Việc cần xử lý</div><div class="value">{{ pending_suggestions }}</div>
+        <div class="sub"><a href="{% url 'dashboard:reorder' %}">đề xuất nhập hàng</a> · {{ po_open }} PO đang về · {{ so_open }} SO chưa giao</div></div>
+</div>
+
+{% if latest_report %}
+<div class="card ai-box" style="margin-bottom:1rem;">
+    <h2>Tóm tắt AI · {{ latest_report.title }}</h2>
+    {% for block in latest_report.body %}{% if block.block_type == "paragraph" and forloop.counter <= 2 %}{{ block.value }}{% endif %}{% endfor %}
+    <a href="{{ latest_report.url }}">Xem báo cáo đầy đủ →</a>
+</div>
+{% endif %}
+
+<div class="grid grid-2">
+    <div class="card"><h2>Doanh thu 12 tháng</h2><div class="chart-box"><canvas id="chart-monthly"></canvas></div></div>
+    <div class="card"><h2>Giá trị tồn theo kho</h2><div class="chart-box"><canvas id="chart-warehouses"></canvas></div></div>
+</div>
+<div class="grid grid-2" style="margin-top:1rem;">
+    <div class="card">
+        <h2>Top 10 sản phẩm (30 ngày)</h2>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Sản phẩm</th><th class="num">SL</th><th class="num">Doanh thu</th></tr></thead>
+            <tbody>{% for p in top %}<tr><td><a href="{% url 'dashboard:product' p.sku %}">{{ p.name }}</a> <span class="muted small">{{ p.sku }}</span></td>
+                <td class="num">{{ p.qty }}</td><td class="num">{{ p.revenue|vnd }}</td></tr>{% empty %}<tr><td colspan="3" class="muted">Chưa có dữ liệu</td></tr>{% endfor %}</tbody>
+        </table></div>
+    </div>
+    <div class="card"><h2>Doanh thu theo danh mục (30 ngày)</h2><div class="chart-box"><canvas id="chart-categories"></canvas></div></div>
+</div>
+
+<div class="card" style="margin-top:1rem;">
+    <h2>Sản phẩm cần chú ý</h2>
+    <div class="table-wrap"><table>
+        <thead><tr><th>Sản phẩm</th><th>Kho</th><th class="num">Khả dụng</th><th class="num">ROP</th><th>Tình trạng</th></tr></thead>
+        <tbody>{% for it in inventory.below_reorder_point_items %}<tr>
+            <td><a href="{% url 'dashboard:product' it.sku %}">{{ it.name }}</a></td><td>{{ it.warehouse }}</td>
+            <td class="num">{{ it.available }}</td><td class="num">{{ it.reorder_point }}</td>
+            <td>{% if it.available <= 0 %}<span class="badge badge-out">Hết hàng</span>{% else %}<span class="badge badge-low">Sắp hết</span>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="5" class="muted">Không có sản phẩm dưới ROP.</td></tr>{% endfor %}</tbody>
+    </table></div>
+</div>
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const d = JSON.parse(document.getElementById("chart-data").textContent);
+    const palette = ["#000080", "#0069ba", "#1fba00", "#5b8def", "#7fd36b", "#8a8fd1", "#b8c4d6"];
+    const money = v => (v >= 1e9 ? (v / 1e9).toFixed(2) + " tỷ" : (v / 1e6).toFixed(0) + " tr");
+    const base = { maintainAspectRatio: false, plugins: { legend: { display: false } } };
+    new Chart(document.getElementById("chart-monthly"), {
+        type: "bar",
+        data: { labels: d.monthly.map(r => r.month), datasets: [{ data: d.monthly.map(r => r.revenue), backgroundColor: "#0069ba" }] },
+        options: { ...base, scales: { y: { ticks: { callback: money } } },
+                   plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => money(c.raw) } } } }
+    });
+    new Chart(document.getElementById("chart-warehouses"), {
+        type: "doughnut",
+        data: { labels: d.warehouses.map(r => r.warehouse), datasets: [{ data: d.warehouses.map(r => r.value), backgroundColor: palette }] },
+        options: { maintainAspectRatio: false, plugins: { tooltip: { callbacks: { label: c => c.label + ": " + money(c.raw) } } } }
+    });
+    new Chart(document.getElementById("chart-categories"), {
+        type: "bar",
+        data: { labels: d.categories.map(r => r.category), datasets: [{ data: d.categories.map(r => r.revenue), backgroundColor: palette }] },
+        options: { ...base, indexAxis: "y", scales: { x: { ticks: { callback: money } } },
+                   plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => money(c.raw) } } } }
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+{% block title %}Trợ lý AI{% endblock %}
+{% block content %}
+<div class="toolbar"><div><h1>Trợ lý dữ liệu</h1>
+    <span class="muted small">Hỏi về tồn kho, doanh số, đơn mua, đề xuất nhập hàng. AI chỉ lấy số liệu qua các hàm tra cứu có sẵn của hệ thống.</span></div>
+    <form method="post" action="{% url 'dashboard:assistant_reset' %}">{% csrf_token %}<button class="btn btn-light" type="submit">Cuộc trò chuyện mới</button></form>
+</div>
+<div class="card">
+    <div id="chat" class="chat">
+        {% for m in history %}
+            <div class="bubble {% if m.role == 'user' %}user{% else %}bot{% endif %}">{% if m.role == 'user' %}{{ m.content }}{% else %}{{ m.content|simple_markdown }}{% endif %}</div>
+        {% empty %}
+            <div class="bubble bot muted" id="chat-empty">Xin chào! Tôi trả lời các câu hỏi về dữ liệu kho, mua hàng và bán hàng.</div>
+        {% endfor %}
+    </div>
+    <form class="chat-form" hx-post="{% url 'dashboard:assistant' %}" hx-target="#chat" hx-swap="beforeend"
+          hx-disabled-elt="find button" hx-indicator="#chat-spin"
+          hx-on::after-request="this.reset(); const c = document.getElementById('chat'); c.scrollTop = c.scrollHeight;">
+        <input type="text" name="question" placeholder="Ví dụ: Tháng này kho HCM bán chạy nhất mặt hàng nào?" required autocomplete="off" maxlength="1000">
+        <button class="btn" type="submit">Gửi</button>
+    </form>
+    <p id="chat-spin" class="htmx-indicator muted small">Đang trả lời…</p>
+    <div class="suggest">
+        <button type="button" onclick="setQ(this)">Những mặt hàng nào đang hết hàng?</button>
+        <button type="button" onclick="setQ(this)">Doanh thu tháng này so với tháng trước thế nào?</button>
+        <button type="button" onclick="setQ(this)">Top 5 sản phẩm bán chạy ở kho HCM 30 ngày qua</button>
+        <button type="button" onclick="setQ(this)">Có PO nào đang giao trễ không?</button>
+    </div>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+function setQ(btn) { const i = document.querySelector(".chat-form input"); i.value = btn.textContent; i.focus(); }
+document.addEventListener("htmx:beforeRequest", () => { const e = document.getElementById("chat-empty"); if (e) e.remove(); });
+</script>
+{% endblock %}

@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% load erp_tags %}
+{% block title %}{{ product.name }}{% endblock %}
+{% block extra_head %}<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>{% endblock %}
+{% block content %}
+<p class="small"><a href="{% url 'dashboard:inventory' %}">← Tồn kho</a></p>
+<div class="toolbar">
+    <div><h1>{{ product.name }}</h1>
+        <span class="muted">{{ product.sku }} · {{ product.category.name }} · {{ product.get_unit_display }} · NCC: {{ product.default_supplier|default:"–" }}</span></div>
+    <div class="muted">Giá nhập {{ product.cost_price|vnd }} · Giá bán {{ product.sale_price|vnd }}</div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card"><h2>Doanh số theo tuần (52 tuần) và dự báo 4 tuần</h2>
+        <div class="chart-box"><canvas id="chart-weekly"></canvas></div>
+        <p class="small muted">Đã bán 90 ngày: {{ sales_90d }}. Dự báo tuần = tổng dự báo/ngày của các kho × 7.</p></div>
+    <div class="card ai-box">
+        <h2>Phân tích AI</h2>
+        <div id="ai-result"><p class="muted">AI đọc doanh số, tồn kho và dự báo của sản phẩm để tóm tắt rủi ro và đề xuất hành động.</p></div>
+        <button class="btn" hx-post="{% url 'dashboard:product_ai' product.sku %}" hx-target="#ai-result" hx-disabled-elt="this" hx-indicator="#ai-spin">Phân tích AI</button>
+        <span id="ai-spin" class="htmx-indicator muted">Đang phân tích…</span>
+    </div>
+</div>
+
+<div class="grid grid-2e" style="margin-top:1rem;">
+    <div class="card"><h2>Tồn theo kho</h2>
+        <table><thead><tr><th>Kho</th><th class="num">Tồn</th><th class="num">Giữ</th><th class="num">Khả dụng</th><th class="num">ROP</th><th>Tình trạng</th></tr></thead>
+        <tbody>{% for lv in levels %}<tr><td>{{ lv.warehouse.name }}</td><td class="num">{{ lv.on_hand }}</td><td class="num">{{ lv.reserved }}</td>
+            <td class="num">{{ lv.available }}</td><td class="num">{{ lv.effective_reorder_point }}</td><td><span class="badge badge-{{ lv.status_code }}">{{ lv.status }}</span></td></tr>{% endfor %}</tbody></table>
+    </div>
+    <div class="card"><h2>Dự báo gần nhất</h2>
+        {% if forecasts %}
+        <table><thead><tr><th>Kho</th><th class="num">Dự báo/ngày</th><th class="num">Mùa vụ</th><th class="num">Tồn AT</th><th class="num">Đủ bán</th><th class="num">Ngày hết hàng</th></tr></thead>
+        <tbody>{% for f in forecasts %}<tr><td>{{ f.warehouse.code }}</td><td class="num">{{ f.forecast_daily|floatformat:1 }}</td><td class="num">×{{ f.seasonal_factor|floatformat:2 }}</td>
+            <td class="num">{{ f.safety_stock }}</td><td class="num">{% if f.days_of_cover is not None %}{{ f.days_of_cover }} ngày{% else %}–{% endif %}</td><td class="num">{{ f.stockout_days }}</td></tr>{% endfor %}</tbody></table>
+        <p class="small muted">Chạy ngày {{ forecasts.0.run_date|date:"d/m/Y" }} · lead time {{ forecasts.0.lead_time_days }} ngày · "Ngày hết hàng" = số ngày tồn bằng 0 trong {{ forecasts.0.window_days }} ngày qua.</p>
+        {% else %}<p class="muted">Chưa chạy dự báo.</p>{% endif %}
+    </div>
+</div>
+
+<div class="card" style="margin-top:1rem;"><h2>30 phiếu xuất nhập gần nhất</h2>
+    <div class="table-wrap"><table><thead><tr><th>Thời điểm</th><th>Loại</th><th>Kho</th><th class="num">SL</th><th class="num">Tồn sau</th><th>Chứng từ</th><th>Ghi chú</th></tr></thead>
+    <tbody>{% for m in movements %}<tr><td>{{ m.occurred_at|date:"d/m/Y H:i" }}</td><td>{{ m.get_movement_type_display }}</td><td>{{ m.warehouse.code }}</td>
+        <td class="num {% if m.quantity < 0 %}down{% else %}up{% endif %}">{{ m.quantity }}</td><td class="num">{{ m.balance_after }}</td><td>{{ m.reference }}</td><td class="small">{{ m.note }}</td></tr>{% endfor %}</tbody></table></div>
+</div>
+{{ chart_data|json_script:"chart-data" }}
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const d = JSON.parse(document.getElementById("chart-data").textContent);
+    const datasets = [{ type: "bar", label: "Thực tế", data: d.actual, backgroundColor: "#0069ba" }];
+    if (d.forecast.length) {
+        datasets.push({ type: "line", label: "Dự báo", data: d.forecast, borderColor: "#1fba00",
+                        borderDash: [6, 4], pointRadius: 3 });
+    }
+    new Chart(document.getElementById("chart-weekly"), {
+        data: { labels: d.labels, datasets },
+        options: { maintainAspectRatio: false, plugins: { legend: { position: "bottom" } } }
+    });
+});
+</script>
+{% endblock %}

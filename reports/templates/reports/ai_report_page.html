@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+{% block content %}
+<p class="small"><a href="{% url 'dashboard:reports' %}">← Danh sách báo cáo</a></p>
+<div class="toolbar">
+    <div><h1>{{ page.title }}</h1>
+        <span class="muted">Kỳ {{ page.period_start|date:"d/m/Y" }} – {{ page.period_end|date:"d/m/Y" }}
+        · {% if page.generated_by_ai %}<span class="badge badge-ai">Nhận xét do AI viết</span>{% else %}<span class="badge badge-muted">Nhận xét theo mẫu</span>{% endif %}</span></div>
+    <button class="btn btn-light" onclick="window.print()">In / lưu PDF</button>
+</div>
+{% if page.ai_warnings and request.user.is_staff %}
+    <div class="card warn-box" style="margin-bottom:1rem;"><strong>Cảnh báo kiểm tra số liệu (chỉ người duyệt thấy)</strong>
+        <ul>{% for w in page.ai_warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>
+{% endif %}
+<article class="card report-body">
+    {% for block in page.body %}
+        {% if block.block_type == "heading" %}<h2>{{ block.value }}</h2>
+        {% else %}{% include_block block %}{% endif %}
+    {% endfor %}
+    <p class="small muted" style="margin-top:2rem;">Số liệu trong bảng KPI do hệ thống tính từ dữ liệu giao dịch. Phần nhận xét {% if page.generated_by_ai %}do AI viết và đã được người phụ trách duyệt trước khi xuất bản{% else %}được tạo tự động theo mẫu{% endif %}.</p>
+</article>
+{% endblock %}

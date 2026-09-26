@@ -1,0 +1,11 @@
+{% if analysis %}
+    <p><span class="badge {% if analysis.risk_level == 'high' %}badge-out{% elif analysis.risk_level == 'medium' %}badge-low{% else %}badge-ok{% endif %}">
+        Rủi ro: {% if analysis.risk_level == 'high' %}cao{% elif analysis.risk_level == 'medium' %}trung bình{% else %}thấp{% endif %}</span></p>
+    <p>{{ analysis.summary }}</p>
+    {% if analysis.actions %}<strong>Hành động đề xuất</strong><ul>{% for a in analysis.actions %}<li>{{ a }}</li>{% endfor %}</ul>{% endif %}
+    <p class="small muted">AI diễn giải từ số liệu của hệ thống; người dùng quyết định cuối cùng.</p>
+{% else %}
+    <p class="msg msg-warning">{{ error }}</p>
+    <strong>Tóm tắt theo công thức</strong>
+    <ul>{% for line in fallback %}<li>{{ line }}</li>{% endfor %}</ul>
+{% endif %}

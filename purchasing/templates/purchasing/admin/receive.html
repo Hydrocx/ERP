@@ -1,0 +1,31 @@
+{% extends "wagtailadmin/base.html" %}
+{% load wagtailadmin_tags %}
+{% block titletag %}Nhận hàng {{ po.code }}{% endblock %}
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title="Nhận hàng" subtitle=po.code icon="download" %}
+    <div class="nice-padding">
+        <p>Nhà cung cấp: <strong>{{ po.supplier }}</strong> — Kho nhận: <strong>{{ po.warehouse }}</strong></p>
+        <form method="post">
+            {% csrf_token %}
+            <table class="listing">
+                <thead><tr><th>Sản phẩm</th><th>Đặt</th><th>Đã nhận</th><th>Còn lại</th><th>Nhận lần này</th></tr></thead>
+                <tbody>
+                {% for line in lines %}
+                    <tr>
+                        <td>{{ line.product }}</td>
+                        <td>{{ line.quantity }}</td>
+                        <td>{{ line.received_quantity }}</td>
+                        <td>{{ line.remaining_quantity }}</td>
+                        <td><input type="number" name="qty_{{ line.pk }}" min="0" max="{{ line.remaining_quantity }}"
+                                   value="{{ line.remaining_quantity }}" style="max-width:8rem"></td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <p style="margin-top:1.5rem;">
+                <button type="submit" class="button">Xác nhận nhập kho</button>
+                <a class="button button-secondary" href="{{ back_url }}">Quay lại</a>
+            </p>
+        </form>
+    </div>
+{% endblock %}

@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% load wagtailcore_tags %}
+{% block content %}
+<h1>{{ page.title }}</h1>
+{{ page.intro|richtext }}
+<div class="card">
+    <table><thead><tr><th>Báo cáo</th><th>Kỳ</th><th>Nguồn</th></tr></thead>
+    <tbody>{% for r in reports %}<tr><td><a href="{% pageurl r %}">{{ r.title }}</a></td>
+        <td>{{ r.period_start|date:"d/m/Y" }} – {{ r.period_end|date:"d/m/Y" }}</td>
+        <td>{% if r.generated_by_ai %}<span class="badge badge-ai">AI</span>{% else %}<span class="badge badge-muted">Mẫu</span>{% endif %}</td></tr>
+    {% empty %}<tr><td colspan="3" class="muted">Chưa có báo cáo.</td></tr>{% endfor %}</tbody></table>
+</div>
+{% endblock %}

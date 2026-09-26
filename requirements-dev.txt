@@ -1,0 +1,7 @@
+-r requirements.txt
+pytest>=9.0
+pytest-django>=4.14
+factory_boy>=3.3
+# Optional: record the demo video (scripts/record_demo.py)
+# playwright>=1.50
+# imageio-ffmpeg>=0.5

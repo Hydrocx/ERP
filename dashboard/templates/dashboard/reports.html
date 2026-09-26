@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Báo cáo{% endblock %}
+{% block content %}
+<h1>Báo cáo</h1>
+<div class="grid grid-2">
+    <div class="card">
+        <h2>Báo cáo đã xuất bản</h2>
+        <table><thead><tr><th>Báo cáo</th><th>Kỳ</th><th>Nguồn</th></tr></thead>
+        <tbody>{% for r in published %}<tr><td><a href="{{ r.url }}">{{ r.title }}</a></td><td>{{ r.period_start|date:"d/m" }} – {{ r.period_end|date:"d/m/Y" }}</td>
+            <td>{% if r.generated_by_ai %}<span class="badge badge-ai">AI</span>{% else %}<span class="badge badge-muted">Mẫu</span>{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="3" class="muted">Chưa có báo cáo được xuất bản.</td></tr>{% endfor %}</tbody></table>
+    </div>
+    {% if can_generate %}
+    <div class="card">
+        <h2>Tạo báo cáo AI</h2>
+        <form method="post" onsubmit="this.querySelector('button').disabled=true;">
+            {% csrf_token %}
+            <div class="filters">
+                <label>Từ ngày<input type="date" name="start" value="{{ default_start|date:'Y-m-d' }}" required></label>
+                <label>Đến ngày<input type="date" name="end" value="{{ default_end|date:'Y-m-d' }}" required></label>
+            </div>
+            <button class="btn" type="submit">Tạo báo cáo</button>
+        </form>
+        <p class="small muted">Hệ thống tính KPI → AI viết nhận xét → tạo trang báo cáo nháp → gửi vào quy trình duyệt của Wagtail. Nếu chưa cấu hình AI, báo cáo được viết theo mẫu.</p>
+        <h3 style="margin-top:1rem;">Nháp chờ duyệt</h3>
+        <ul>{% for r in drafts %}<li><a href="{% url 'wagtailadmin_pages:edit' r.pk %}">{{ r.title }}</a>
+            {% if r.ai_warnings %}<span class="badge badge-low">{{ r.ai_warnings|length }} cảnh báo</span>{% endif %}</li>
+            {% empty %}<li class="muted">Không có.</li>{% endfor %}</ul>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
