@@ -26,11 +26,8 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 copy .env.example .env              # macOS/Linux: cp .env.example .env
 
-python manage.py migrate
-python manage.py seed_data --admin          # ~7 phút, 400 ngày dữ liệu; thử nhanh: --days 30
-python manage.py setup_roles --demo-users   # nhóm quyền + user demo
-python manage.py run_forecast               # dự báo + đề xuất nhập hàng
-python manage.py generate_weekly_report --user admin
+python manage.py setup_demo                 # migrate + dữ liệu mẫu 400 ngày + tài khoản demo (~7 phút)
+                                            # hoặc: setup_demo --quick (60 ngày, ~2-3 phút)
 python manage.py runserver
 ```
 

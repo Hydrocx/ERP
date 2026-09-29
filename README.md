@@ -28,13 +28,16 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 copy .env.example .env                      # AI_PROVIDER=openai|gemini + key tương ứng (không bắt buộc)
 
-python manage.py migrate
-python manage.py seed_data --admin          # mô phỏng 400 ngày (~7 phút); thử nhanh: --days 30
-python manage.py setup_roles --demo-users
-python manage.py run_forecast
-python manage.py generate_weekly_report --user admin
+python manage.py setup_demo                 # database + dữ liệu mẫu + tài khoản demo (~7 phút)
+                                            # nhanh hơn: setup_demo --quick (~2-3 phút, 60 ngày, không có mùa vụ)
 python manage.py runserver
 ```
+
+> **Thành viên mới clone repo:** database (`db.sqlite3`) và file `.env` **không có trong git**, nên sau khi
+> `git clone`/`git pull` phải chạy `python manage.py setup_demo` một lần thì mới có dữ liệu và các tài khoản bên dưới.
+> Mỗi người tự tạo `.env` từ `.env.example` và dùng API key của mình (không gửi key qua git hay chat).
+> `setup_demo` tương đương chạy lần lượt: `migrate`, `seed_data --admin`, `setup_roles --demo-users`,
+> `run_forecast --no-ai`, `generate_weekly_report --no-ai --user admin`.
 
 | URL | |
 |---|---|
