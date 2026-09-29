@@ -1,4 +1,4 @@
-"""Thin wrapper around the OpenAI Chat Completions API.
+"""Thin wrapper around the OpenAI Chat Completions API (also used for Gemini's OpenAI-compatible endpoint).
 
 - Every call is logged to AICallLog (tokens, latency, errors).
 - Raises AIUnavailable when AI is switched off or no API key is configured,
@@ -29,7 +29,7 @@ class AIError(Exception):
 def _make_openai():
     from openai import OpenAI
 
-    return OpenAI(api_key=settings.OPENAI_API_KEY, timeout=60, max_retries=2)
+    return OpenAI(api_key=settings.AI_API_KEY, base_url=settings.AI_BASE_URL, timeout=60, max_retries=2)
 
 
 def get_settings():
@@ -38,7 +38,7 @@ def get_settings():
 
 def is_enabled(feature_flag=None):
     cfg = get_settings()
-    if not (settings.OPENAI_API_KEY and cfg.enabled):
+    if not (settings.AI_API_KEY and cfg.enabled):
         return False
     return getattr(cfg, feature_flag) if feature_flag else True
 
@@ -51,7 +51,8 @@ def chat(feature, messages, **kwargs):
 def _call(feature, messages, *, response_schema=None, schema_name="result", tools=None, user=None,
           feature_flag=None):
     if not is_enabled(feature_flag):
-        raise AIUnavailable("AI chưa được cấu hình (thiếu OPENAI_API_KEY) hoặc đang tắt.")
+        key = "GEMINI_API_KEY" if settings.AI_PROVIDER == "gemini" else "OPENAI_API_KEY"
+        raise AIUnavailable(f"AI chưa được cấu hình (thiếu {key}) hoặc đang tắt.")
     cfg = get_settings()
     kwargs = {"model": cfg.model_name, "messages": messages}
     if cfg.temperature is not None:
@@ -73,7 +74,7 @@ def _call(feature, messages, *, response_schema=None, schema_name="result", tool
     except Exception as exc:  # network, auth, rate limit, bad request...
         log.success = False
         log.error = f"{type(exc).__name__}: {exc}"[:2000]
-        raise AIError(log.error) from exc
+        raise AIError(_friendly_error(exc)) from exc
     else:
         usage = getattr(response, "usage", None)
         log.input_tokens = getattr(usage, "prompt_tokens", 0) or 0
@@ -83,6 +84,25 @@ def _call(feature, messages, *, response_schema=None, schema_name="result", tool
     finally:
         log.latency_ms = int((time.monotonic() - started) * 1000)
         log.save()
+
+
+def _friendly_error(exc):
+    """Short Vietnamese message for the UI; the full error stays in AICallLog."""
+    status = getattr(exc, "status_code", None)
+    text = str(exc)
+    if status == 429:
+        per_day = "PerDay" in text
+        wait = re.search(r"retry in ([\d.]+)s", text)
+        hint = f" Thử lại sau khoảng {float(wait.group(1)):.0f} giây." if wait and not per_day else ""
+        return ("Đã hết hạn mức gọi AI" + (" trong ngày" if per_day else " (quá nhiều yêu cầu mỗi phút)")
+                + " của gói hiện tại." + hint + " Có thể đổi model trong Cấu hình AI & dự báo hoặc nâng gói.")
+    if status in (500, 502, 503, 504):
+        return "Máy chủ AI đang quá tải hoặc tạm lỗi, vui lòng thử lại sau ít phút."
+    if status in (401, 403):
+        return "API key không hợp lệ hoặc không có quyền. Kiểm tra lại key và AI_PROVIDER trong .env."
+    if status == 404:
+        return f"Model '{get_settings().model_name}' không tồn tại hoặc đã ngừng. Đổi model trong Cấu hình AI & dự báo."
+    return f"Lỗi khi gọi AI: {text[:300]}"
 
 
 def _excerpt(message):

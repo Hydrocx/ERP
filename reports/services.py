@@ -95,7 +95,7 @@ def fallback_sections(k):
 
 # ----------------------------------------------------------- number checking
 
-NUMBER_RE = re.compile(r"(\d[\d.,]*)\s*(tỷ|tỉ|triệu|tr\b|nghìn|ngàn|k\b|%)?", re.IGNORECASE)
+NUMBER_RE = re.compile(r"(?<![\d-])(\d[\d.,]*)(?![\d-])\s*(tỷ|tỉ|triệu|tr\b|nghìn|ngàn|k\b|%)?", re.IGNORECASE)
 SCALE = {"tỷ": 1e9, "tỉ": 1e9, "triệu": 1e6, "tr": 1e6, "nghìn": 1e3, "ngàn": 1e3, "k": 1e3}
 
 
@@ -116,6 +116,8 @@ def _kpi_numbers(obj, out):
         return out
     if isinstance(obj, (int, float)):
         out.append(float(obj))
+    elif isinstance(obj, str):  # numbers inside names/dates, e.g. "Hạt điều 500g", "2026-09-21"
+        out.extend(float(n) for n in re.findall(r"\d+(?:\.\d+)?", obj))
     elif isinstance(obj, dict):
         for v in obj.values():
             _kpi_numbers(v, out)
@@ -134,6 +136,7 @@ def check_numbers(texts, kpis, tolerance=0.02):
     warnings = []
     for text in texts:
         for raw, unit in NUMBER_RE.findall(text):
+            raw = raw.rstrip(".,")
             value = _parse_number(raw)
             if value is None or raw in known_dates:
                 continue

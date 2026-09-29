@@ -227,5 +227,16 @@ LOGGING = {
 }
 
 # AI (OpenAI)
+# AI provider: "openai" or "gemini" (Google Gemini through its OpenAI-compatible endpoint).
+AI_PROVIDER = env("AI_PROVIDER", default="openai").lower()
 OPENAI_API_KEY = env("OPENAI_API_KEY", default="")
-OPENAI_MODEL = env("OPENAI_MODEL", default="gpt-4o-mini")
+GEMINI_API_KEY = env("GEMINI_API_KEY", default="")
+GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta/openai/"
+if AI_PROVIDER == "gemini":
+    AI_API_KEY = GEMINI_API_KEY
+    AI_BASE_URL = env("AI_BASE_URL", default=GEMINI_BASE_URL)
+    OPENAI_MODEL = env("AI_MODEL", default="gemini-flash-latest")
+else:
+    AI_API_KEY = OPENAI_API_KEY
+    AI_BASE_URL = env("AI_BASE_URL", default="") or None
+    OPENAI_MODEL = env("AI_MODEL", default=env("OPENAI_MODEL", default="gpt-4o-mini"))

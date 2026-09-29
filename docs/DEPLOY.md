@@ -9,8 +9,9 @@
 | `ALLOWED_HOSTS` | production | – | Danh sách phân cách bằng dấu phẩy |
 | `CSRF_TRUSTED_ORIGINS` | production | – | Ví dụ `https://erp.example.com` |
 | `WAGTAILADMIN_BASE_URL` | không | `http://localhost:8000` | Dùng cho link trong email thông báo duyệt |
-| `OPENAI_API_KEY` | không | rỗng | Không có key → các tính năng AI dùng phương án dự phòng theo công thức/mẫu |
-| `OPENAI_MODEL` | không | `gpt-4o-mini` | Có thể đổi trong Wagtail Settings. Kiểm tra model còn được OpenAI hỗ trợ trước khi dùng |
+| `AI_PROVIDER` | không | `openai` | `openai` (key dạng `sk-...`) hoặc `gemini` (key Google AI Studio, dùng endpoint tương thích OpenAI của Gemini) |
+| `OPENAI_API_KEY` / `GEMINI_API_KEY` | không | rỗng | Key của nhà cung cấp đã chọn. Không có key → các tính năng AI dùng phương án dự phòng theo công thức/mẫu |
+| `AI_MODEL` | không | `gpt-4o-mini` / `gemini-flash-latest` | Có thể đổi trong Wagtail Settings. Gói miễn phí Gemini giới hạn số yêu cầu/phút và /ngày theo từng model; khi hết hạn mức dùng `gemini-flash-lite-latest` hoặc nâng gói |
 | `HTTPS`, `SECURE_SSL_REDIRECT` | không | `False` | Bật khi chạy sau proxy TLS |
 | `GUNICORN_WORKERS` | không | 3 | |
 | `LOG_LEVEL` | không | `WARNING` | |

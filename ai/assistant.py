@@ -162,6 +162,26 @@ def run_tool(name, arguments):
         return {"error": f"Tham số không hợp lệ: {exc}"}
 
 
+def _assistant_turn(message, calls):
+    """Echo the model's tool-call message back unchanged.
+
+    model_dump() keeps provider-specific extras such as Gemini's
+    tool_calls[].extra_content.google.thought_signature, which Gemini requires.
+    """
+    if hasattr(message, "model_dump"):
+        turn = message.model_dump(exclude_none=True)
+        turn["role"] = "assistant"
+        if turn.get("content") is None:
+            turn["content"] = ""
+        return turn
+    return {
+        "role": "assistant", "content": message.content or "",
+        "tool_calls": [{"id": c.id, "type": "function",
+                        "function": {"name": c.function.name, "arguments": c.function.arguments}}
+                       for c in calls],
+    }
+
+
 def ask(question, history=(), user=None):
     """Answer a question. Returns (answer_text, tools_used)."""
     messages = [{"role": "system", "content": prompts.ASSISTANT_SYSTEM.format(today=timezone.localdate())}]
@@ -174,12 +194,7 @@ def ask(question, history=(), user=None):
         calls = getattr(message, "tool_calls", None) or []
         if not calls:
             return (message.content or "").strip(), used
-        messages.append({
-            "role": "assistant", "content": message.content or "",
-            "tool_calls": [{"id": c.id, "type": "function",
-                            "function": {"name": c.function.name, "arguments": c.function.arguments}}
-                           for c in calls],
-        })
+        messages.append(_assistant_turn(message, calls))
         for c in calls:
             used.append(c.function.name)
             result = run_tool(c.function.name, c.function.arguments)

@@ -1,6 +1,6 @@
 """Call every AI feature once against the real OpenAI API and report the result.
 
-Run after setting OPENAI_API_KEY (and seeding data):  python manage.py ai_selftest
+Run after setting OPENAI_API_KEY or GEMINI_API_KEY (and seeding data):  python manage.py ai_selftest
 Costs a few thousand tokens. Reorder suggestions are only read, nothing else is changed
 except the AI fields of one pending suggestion.
 """
@@ -22,12 +22,13 @@ from reports.services import check_numbers, previous_week
 
 
 class Command(BaseCommand):
-    help = "Gọi thử từng tính năng AI với OpenAI thật (cần OPENAI_API_KEY)."
+    help = "Gọi thử từng tính năng AI với nhà cung cấp thật (OpenAI hoặc Gemini)."
 
     def handle(self, *args, **opts):
         if not client.is_enabled():
-            raise CommandError("Chưa cấu hình OPENAI_API_KEY hoặc AI đang tắt trong Cấu hình AI & dự báo.")
-        self.stdout.write(f"Model: {client.get_settings().model_name}")
+            raise CommandError("Chưa cấu hình API key (OPENAI_API_KEY / GEMINI_API_KEY) hoặc AI đang tắt.")
+        from django.conf import settings
+        self.stdout.write(f"Nhà cung cấp: {settings.AI_PROVIDER} · Model: {client.get_settings().model_name}")
         results = [
             self.run("F1 đề xuất nhập hàng", self.reorder),
             self.run("Phân tích sản phẩm", self.product),

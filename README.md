@@ -26,7 +26,7 @@ dự phòng (công thức / mẫu) khi không có API key hoặc AI lỗi.
 python -m venv .venv
 .venv\Scripts\activate                      # macOS/Linux: source .venv/bin/activate
 pip install -r requirements-dev.txt
-copy .env.example .env                      # điền OPENAI_API_KEY (không bắt buộc)
+copy .env.example .env                      # AI_PROVIDER=openai|gemini + key tương ứng (không bắt buộc)
 
 python manage.py migrate
 python manage.py seed_data --admin          # mô phỏng 400 ngày (~7 phút); thử nhanh: --days 30
@@ -82,8 +82,8 @@ toàn bộ trang frontend và lệnh seed. Test không gọi OpenAI thật.
 
 ## Công nghệ
 
-Python 3.11+ (đã chạy với 3.14) · Django 6.1 · Wagtail 8.0 · SQLite / PostgreSQL · OpenAI Chat Completions
-(JSON schema, function calling) · HTMX · Chart.js · WhiteNoise · Gunicorn · Docker Compose · pytest
+Python 3.11+ (đã chạy với 3.14) · Django 6.1 · Wagtail 8.0 · SQLite / PostgreSQL · OpenAI Chat Completions hoặc Google Gemini
+(qua endpoint tương thích OpenAI; JSON schema, function calling, vision) · HTMX · Chart.js · WhiteNoise · Gunicorn · Docker Compose · pytest
 
 ## Cấu trúc
 

@@ -42,7 +42,7 @@ def _message(content, tool_calls=None):
 
 @pytest.fixture
 def fake_openai(monkeypatch, settings):
-    settings.OPENAI_API_KEY = "test-key"
+    settings.AI_API_KEY = "test-key"
     fake = FakeOpenAI()
     monkeypatch.setattr("ai.client._make_openai", lambda: fake)
     return fake
@@ -50,4 +50,5 @@ def fake_openai(monkeypatch, settings):
 
 @pytest.fixture
 def no_openai(settings):
-    settings.OPENAI_API_KEY = ""
+    settings.AI_PROVIDER = "openai"
+    settings.AI_API_KEY = ""

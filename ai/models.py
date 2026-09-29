@@ -17,7 +17,7 @@ class AISettings(BaseGenericSetting):
     enabled = models.BooleanField("Bật tính năng AI", default=True)
     model = models.CharField(
         "Model OpenAI", max_length=100, blank=True,
-        help_text="Để trống để dùng biến môi trường OPENAI_MODEL.",
+        help_text="Để trống để dùng biến môi trường AI_MODEL (mặc định gpt-4o-mini / gemini-flash-latest).",
     )
     temperature = models.DecimalField(
         "Temperature", max_digits=3, decimal_places=2, null=True, blank=True, default=Decimal("0.2"),

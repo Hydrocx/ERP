@@ -134,3 +134,33 @@ def test_ai_selftest_command(fake_openai, suggestions, capsys):
     call_command("ai_selftest")
     out = capsys.readouterr().out
     assert out.count("] OK") == 4 and "Tất cả tính năng AI hoạt động" in out
+
+
+def test_assistant_echoes_provider_fields_for_gemini(fake_openai):
+    """Gemini needs tool_calls[].extra_content.google.thought_signature sent back unchanged."""
+    from types import SimpleNamespace
+
+    call = SimpleNamespace(id="c1", type="function",
+                           function=SimpleNamespace(name="low_stock_items", arguments="{}"))
+    dumped = {"role": "assistant", "content": None, "tool_calls": [{
+        "id": "c1", "type": "function", "function": {"name": "low_stock_items", "arguments": "{}"},
+        "extra_content": {"google": {"thought_signature": "sig-123"}}}]}
+    message = SimpleNamespace(content=None, tool_calls=[call], refusal=None,
+                              model_dump=lambda exclude_none=True: dumped)
+    fake_openai.responses.append(SimpleNamespace(choices=[SimpleNamespace(message=message)], usage=None))
+    fake_openai.queue_text("Không có.")
+    ask("Hết hàng?")
+    echoed = fake_openai.requests[1]["messages"][-2]
+    assert echoed["tool_calls"][0]["extra_content"]["google"]["thought_signature"] == "sig-123"
+    assert echoed["content"] == ""
+
+
+def test_rate_limit_error_is_readable(fake_openai):
+    class RateLimited(Exception):
+        status_code = 429
+
+    fake_openai.queue_error(RateLimited("Quota exceeded ... PerMinute ... Please retry in 12.5s."))
+    with pytest.raises(client.AIError) as err:
+        client.chat("assistant", [{"role": "user", "content": "x"}])
+    assert "hạn mức" in str(err.value) and "12 giây" in str(err.value)
+    assert "Quota exceeded" in AICallLog.objects.get().error  # full detail kept in the log
