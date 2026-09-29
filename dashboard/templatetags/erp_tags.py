@@ -98,3 +98,10 @@ def simple_markdown(text):
     close_list()
     flush_table()
     return mark_safe("".join(html))
+
+
+@register.simple_tag
+def icon(name, size=None, cls=""):
+    """<svg> referencing the sprite in dashboard/_icons.html."""
+    style = f' style="width:{size}px;height:{size}px"' if size else ""
+    return mark_safe(f'<svg class="icon {cls}"{style} aria-hidden="true"><use href="#i-{escape(name)}"></use></svg>')

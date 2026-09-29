@@ -1,25 +1,25 @@
 {% load erp_tags %}
 {% with k=page.kpi_json %}
 {% if k %}
-<div class="grid grid-kpi" style="margin:1rem 0;">
-    <div class="card kpi"><div class="label">Doanh thu</div><div class="value">{{ k.sales.revenue|vnd_short }}</div>
-        <div class="sub">{% if k.revenue_change_pct is not None %}<span class="{% if k.revenue_change_pct >= 0 %}up{% else %}down{% endif %}">{{ k.revenue_change_pct|pct }}</span> so với kỳ trước{% endif %}</div></div>
-    <div class="card kpi"><div class="label">Lợi nhuận gộp</div><div class="value">{{ k.sales.gross_profit|vnd_short }}</div>
-        <div class="sub">Biên {{ k.sales.gross_margin_pct|default_if_none:"–" }}%</div></div>
-    <div class="card kpi"><div class="label">Đơn đã giao</div><div class="value">{{ k.sales.orders_shipped }}</div>
-        <div class="sub">TB {{ k.sales.avg_order_value|vnd_short }}/đơn</div></div>
-    <div class="card kpi"><div class="label">Giá trị tồn kho</div><div class="value">{{ k.inventory.inventory_value|vnd_short }}</div>
-        <div class="sub">{{ k.inventory.out_of_stock }} hết hàng · {{ k.inventory.below_reorder_point }} dưới ROP</div></div>
-    <div class="card kpi"><div class="label">PO giao trễ</div><div class="value">{{ k.purchasing.po_late_rate_pct|default_if_none:"–" }}%</div>
-        <div class="sub">{{ k.purchasing.po_received_late }}/{{ k.purchasing.po_received }} PO nhận trong kỳ</div></div>
+<div class="grid grid-kpi" style="margin:1rem 0 1.2rem">
+    <div class="card kpi kpi-blue"><span class="kpi-icon">{% icon "money" %}</span><span class="label">Doanh thu</span><span class="value">{{ k.sales.revenue|vnd_short }}</span>
+        <span class="sub">{% if k.revenue_change_pct is not None %}<span class="delta {% if k.revenue_change_pct >= 0 %}up{% else %}down{% endif %}">{% if k.revenue_change_pct >= 0 %}{% icon "up" %}{% else %}{% icon "down" %}{% endif %}{{ k.revenue_change_pct|pct }}</span> so với kỳ trước{% endif %}</span></div>
+    <div class="card kpi kpi-green"><span class="kpi-icon">{% icon "trend" %}</span><span class="label">Lợi nhuận gộp</span><span class="value">{{ k.sales.gross_profit|vnd_short }}</span>
+        <span class="sub">Biên {{ k.sales.gross_margin_pct|default_if_none:"–" }}%</span></div>
+    <div class="card kpi kpi-navy"><span class="kpi-icon">{% icon "cart" %}</span><span class="label">Đơn đã giao</span><span class="value">{{ k.sales.orders_shipped }}</span>
+        <span class="sub">TB {{ k.sales.avg_order_value|vnd_short }}/đơn</span></div>
+    <div class="card kpi kpi-amber"><span class="kpi-icon">{% icon "warehouse" %}</span><span class="label">Giá trị tồn kho</span><span class="value">{{ k.inventory.inventory_value|vnd_short }}</span>
+        <span class="sub">{{ k.inventory.out_of_stock }} hết hàng · {{ k.inventory.below_reorder_point }} dưới ROP</span></div>
+    <div class="card kpi kpi-red"><span class="kpi-icon">{% icon "truck" %}</span><span class="label">PO giao trễ</span><span class="value">{{ k.purchasing.po_late_rate_pct|default_if_none:"–" }}%</span>
+        <span class="sub">{{ k.purchasing.po_received_late }}/{{ k.purchasing.po_received }} PO nhận trong kỳ</span></div>
 </div>
 <div class="grid grid-2e">
-    <div><h3>Top sản phẩm</h3>
+    <div><h3 style="margin-bottom:.5rem">Top sản phẩm</h3>
         <table><thead><tr><th>Sản phẩm</th><th class="num">SL</th><th class="num">Doanh thu</th></tr></thead>
         <tbody>{% for p in k.top_products|slice:":5" %}<tr><td>{{ p.name }}</td><td class="num">{{ p.qty }}</td><td class="num">{{ p.revenue|vnd }}</td></tr>{% endfor %}</tbody></table></div>
-    <div><h3>Doanh thu theo kho</h3>
+    <div><h3 style="margin-bottom:.5rem">Doanh thu theo kho</h3>
         <table><thead><tr><th>Kho</th><th class="num">Doanh thu</th></tr></thead>
-        <tbody>{% for w in k.revenue_by_warehouse %}<tr><td>{{ w.warehouse }}</td><td class="num">{{ w.revenue|vnd }}</td></tr>{% endfor %}</tbody></table></div>
+        <tbody>{% for w in k.revenue_by_warehouse %}<tr><td><span class="badge badge-blue">{{ w.warehouse }}</span></td><td class="num">{{ w.revenue|vnd }}</td></tr>{% endfor %}</tbody></table></div>
 </div>
 {% endif %}
 {% endwith %}

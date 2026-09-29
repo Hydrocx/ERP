@@ -1,15 +1,35 @@
 {% extends "base.html" %}
+{% load erp_tags %}
 {% block title %}Đăng nhập{% endblock %}
 {% block content %}
-<div class="card login-card">
-    <h1>Đăng nhập</h1>
-    {% if form.errors %}<p class="msg msg-error">Sai tên đăng nhập hoặc mật khẩu.</p>{% endif %}
-    <form method="post">
-        {% csrf_token %}
-        <p><label for="id_username">Tên đăng nhập</label>{{ form.username }}</p>
-        <p><label for="id_password">Mật khẩu</label>{{ form.password }}</p>
-        <input type="hidden" name="next" value="{{ next }}">
-        <p><button class="btn" type="submit">Đăng nhập</button></p>
-    </form>
+<div class="auth">
+    <div class="auth-brand">
+        <div>
+            <span class="brand-mark">{% icon "box" 20 %}</span>
+            <h1>Quản lý kho &amp; đơn hàng thông minh</h1>
+            <p>Mini ERP trên Wagtail CMS, kết hợp AI để dự báo nhập hàng, viết báo cáo và trả lời câu hỏi về dữ liệu.</p>
+            <ul>
+                <li>{% icon "check" %}<span>Tồn kho theo thời gian thực tại 3 kho, sổ kho bất biến</span></li>
+                <li>{% icon "check" %}<span>Đề xuất nhập hàng theo mùa vụ, AI giải thích lý do</span></li>
+                <li>{% icon "check" %}<span>Báo cáo tuần do AI viết, có quy trình duyệt</span></li>
+                <li>{% icon "check" %}<span>Trợ lý hỏi đáp dữ liệu và đọc hóa đơn nhà cung cấp</span></li>
+            </ul>
+        </div>
+        <p class="small" style="opacity:.7">Số liệu do hệ thống tính · AI chỉ diễn giải và gợi ý</p>
+    </div>
+    <div class="auth-form">
+        <h2>Đăng nhập</h2>
+        <p class="muted">Dùng tài khoản được quản trị viên cấp.</p>
+        {% if form.errors %}<div class="alert alert-error" style="margin:1rem 0">{% icon "alert" %}<span>Sai tên đăng nhập hoặc mật khẩu.</span></div>{% endif %}
+        <form method="post" style="margin-top:1.2rem">
+            {% csrf_token %}
+            <div class="field"><label for="id_username">Tên đăng nhập</label>
+                <input type="text" name="username" id="id_username" autocomplete="username" autofocus required value="{{ form.username.value|default:'' }}"></div>
+            <div class="field"><label for="id_password">Mật khẩu</label>
+                <input type="password" name="password" id="id_password" autocomplete="current-password" required></div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button class="btn" type="submit">Đăng nhập {% icon "arrow-right" %}</button>
+        </form>
+    </div>
 </div>
 {% endblock %}

@@ -101,9 +101,9 @@ def run(demo):
     demo.shot("02-inventory")
 
     demo.go("/app/products/MUT-TET/", "Chi tiết sản phẩm theo mùa: Mứt Tết – doanh số tuần và dự báo")
-    page.get_by_role("button", name="Phân tích AI").click()
-    page.wait_for_timeout(2500)
-    demo.caption("Phân tích AI (khi chưa có OPENAI_API_KEY, hệ thống hiển thị tóm tắt theo công thức)")
+    page.get_by_role("button", name="Phân tích bằng AI").click()
+    page.wait_for_selector("#ai-result .risk, #ai-result .alert", timeout=90000)
+    demo.caption("Phân tích AI: mức rủi ro và hành động đề xuất cho từng kho (không có API key thì dùng tóm tắt theo công thức)", 4)
     demo.shot("03-product")
 
     demo.go("/app/reorder/", "F1 – Đề xuất nhập hàng: ROP / tồn an toàn theo kho, AI xem lại và giải thích")
@@ -153,8 +153,8 @@ def run(demo):
     demo.go("/app/assistant/", "F3 – Trợ lý dữ liệu: AI chỉ lấy số liệu qua các hàm tra cứu có sẵn")
     page.fill(".chat-form input", "Những mặt hàng nào đang hết hàng ở kho HCM?")
     page.get_by_role("button", name="Gửi").click()
-    page.wait_for_timeout(2500)
-    demo.caption("Không có OPENAI_API_KEY → trợ lý báo chưa cấu hình AI (có key sẽ trả lời kèm nguồn dữ liệu)")
+    page.wait_for_selector("#chat .msg.bot .source, #chat .msg.error", timeout=90000)
+    demo.caption("Trợ lý trả lời bằng số liệu của hệ thống, kèm nguồn dữ liệu (function calling)", 4)
     demo.shot("10-assistant")
 
     demo.go("/app/invoice/", "F4 – Nhập hóa đơn NCC: AI đọc ảnh hóa đơn, người dùng xác nhận → PO nháp")
@@ -183,6 +183,7 @@ def main():
             context = browser.new_context(viewport=SIZE, record_video_dir=str(tmp), record_video_size=SIZE,
                                           locale="vi-VN")
             page = context.new_page()
+            page.set_default_timeout(90000)  # AI calls can take a while
             try:
                 run(Demo(page, args.pause))
             finally:

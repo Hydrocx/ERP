@@ -2,57 +2,87 @@
 {% load erp_tags %}
 {% block title %}Nhập hóa đơn NCC{% endblock %}
 {% block content %}
-<div class="toolbar"><div><h1>Nhập hóa đơn nhà cung cấp</h1>
-    <span class="muted small">Tải ảnh hóa đơn / phiếu giao hàng → AI đọc nội dung → hệ thống khớp NCC và sản phẩm → bạn kiểm tra, sửa và xác nhận → tạo PO nháp.</span></div></div>
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Mua hàng · F4</p>
+        <h1>Nhập hóa đơn nhà cung cấp</h1>
+        <p class="sub">Tải ảnh hóa đơn / phiếu giao hàng → AI đọc nội dung → hệ thống khớp NCC và sản phẩm → bạn kiểm tra, sửa và xác nhận → tạo PO nháp.</p>
+    </div>
+</div>
 
 {% if not preview %}
-<form class="card" method="post" enctype="multipart/form-data" onsubmit="this.querySelector('button').disabled=true;">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="extract">
-    <div class="filters">
-        <label>Ảnh hóa đơn (JPG, PNG, WebP, GIF; tối đa 5 MB)<input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" required></label>
-        <button class="btn" type="submit">Đọc hóa đơn bằng AI</button>
+<div class="grid grid-2">
+    <form class="card" method="post" enctype="multipart/form-data" onsubmit="const b=this.querySelector('button'); b.disabled=true; b.lastChild.textContent=' Đang đọc hóa đơn…';">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="extract">
+        <div class="dropzone">
+            {% icon "upload" %}
+            <strong>Chọn ảnh hóa đơn</strong>
+            <span class="small muted">JPG, PNG, WebP hoặc GIF · tối đa 5 MB</span>
+            <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" required>
+        </div>
+        <button class="btn btn-ai" type="submit" style="margin-top:1rem; width:100%">{% icon "sparkles" %} Đọc hóa đơn bằng AI</button>
+    </form>
+    <div class="card">
+        <div class="card-head"><h2>Quy trình an toàn</h2></div>
+        <ul class="stat-list small">
+            <li><span>{% icon "sparkles" %} AI chỉ <strong>đọc</strong> ảnh, không ghi dữ liệu</span></li>
+            <li><span>{% icon "check" %} Khớp NCC theo mã số thuế / tên, sản phẩm theo SKU / tên</span></li>
+            <li><span>{% icon "alert" %} Cảnh báo đơn giá lệch &gt;20% và tổng tiền lệch</span></li>
+            <li><span>{% icon "user" %} Bạn xác nhận từng dòng trước khi tạo PO nháp</span></li>
+            <li><span>{% icon "info" %} Ảnh không được lưu; tồn kho chỉ thay đổi khi PO được duyệt và nhận hàng</span></li>
+        </ul>
     </div>
-    <p class="small muted">Ảnh chỉ được gửi tới OpenAI để đọc, hệ thống không lưu ảnh. Không có dòng nào được ghi vào sổ kho cho tới khi PO được duyệt và nhận hàng.</p>
-</form>
+</div>
 {% else %}
-<form class="card" method="post">
+<form method="post">
     {% csrf_token %}
     <input type="hidden" name="action" value="create">
-    <div class="grid grid-2e">
-        <div>
-            <p><strong>Số hóa đơn:</strong> {{ preview.invoice_number|default:"–" }} · <strong>Ngày:</strong> {{ preview.invoice_date|default:"–" }}
-               · <strong>Tổng trên hóa đơn:</strong> {% if preview.total_amount %}{{ preview.total_amount|vnd }}{% else %}–{% endif %}</p>
-            <p class="small muted">NCC đọc được: "{{ preview.supplier_name|default:"–" }}" (độ khớp {{ preview.supplier_score }})</p>
+    <div class="grid grid-2">
+        <div class="card">
+            <div class="card-head"><h2>Thông tin hóa đơn</h2><span class="badge badge-ai">AI đã đọc</span></div>
+            <ul class="stat-list">
+                <li><span class="muted">Số hóa đơn</span><strong>{{ preview.invoice_number|default:"–" }}</strong></li>
+                <li><span class="muted">Ngày</span><strong>{{ preview.invoice_date|default:"–" }}</strong></li>
+                <li><span class="muted">Tổng trên hóa đơn</span><strong>{% if preview.total_amount %}{{ preview.total_amount|vnd }}{% else %}–{% endif %}</strong></li>
+                <li><span class="muted">NCC đọc được</span><span>"{{ preview.supplier_name|default:"–" }}" <span class="badge badge-muted">khớp {{ preview.supplier_score }}</span></span></li>
+            </ul>
         </div>
-        <div class="filters">
-            <label>Nhà cung cấp<select name="supplier" required><option value="">— chọn —</option>
-                {% for s in suppliers %}<option value="{{ s.pk }}" {% if s.pk == preview.supplier_id %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
-            <label>Kho nhận<select name="warehouse" required><option value="">— chọn —</option>
-                {% for w in warehouses %}<option value="{{ w.pk }}">{{ w }}</option>{% endfor %}</select></label>
+        <div class="card">
+            <div class="card-head"><h2>Ghi vào hệ thống</h2></div>
+            <div class="filters">
+                <label class="grow">Nhà cung cấp<select name="supplier" required><option value="">— chọn —</option>
+                    {% for s in suppliers %}<option value="{{ s.pk }}" {% if s.pk == preview.supplier_id %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></label>
+                <label class="grow">Kho nhận<select name="warehouse" required><option value="">— chọn —</option>
+                    {% for w in warehouses %}<option value="{{ w.pk }}">{{ w }}</option>{% endfor %}</select></label>
+            </div>
+            {% if preview.note %}<p class="ai-note">Ghi chú của AI: {{ preview.note }}</p>{% endif %}
         </div>
     </div>
+
     {% if preview.warnings %}
-        <div class="card warn-box" style="margin:1rem 0;"><strong>Cần kiểm tra</strong><ul>{% for w in preview.warnings %}<li>{{ w }}</li>{% endfor %}</ul></div>
+        <div class="alert alert-warning mt">{% icon "alert" %}<span><strong>Cần kiểm tra</strong><ul>{% for w in preview.warnings %}<li>{{ w }}</li>{% endfor %}</ul></span></div>
     {% endif %}
-    {% if preview.note %}<p class="small muted">Ghi chú của AI: {{ preview.note }}</p>{% endif %}
-    <div class="table-wrap"><table>
-        <thead><tr><th>Dòng trên hóa đơn</th><th>Sản phẩm trong hệ thống</th><th class="num">Số lượng</th><th class="num">Đơn giá</th></tr></thead>
-        <tbody>
-        {% for line in preview.lines %}
-            <tr><td>{{ line.name }}{% if line.sku %}<br><span class="small muted">{{ line.sku }}</span>{% endif %}
-                    <br><span class="small muted">độ khớp {{ line.match_score }}</span></td>
-                <td><select name="product_{{ forloop.counter0 }}"><option value="">— bỏ qua dòng này —</option>
-                    {% for p in products %}<option value="{{ p.pk }}" {% if p.pk == line.product_id %}selected{% endif %}>{{ p.sku }} – {{ p.name }}</option>{% endfor %}</select></td>
-                <td class="num"><input class="qty" type="number" min="0" name="qty_{{ forloop.counter0 }}" value="{{ line.quantity }}"></td>
-                <td class="num"><input class="qty" style="width:8rem" type="number" min="0" step="1" name="price_{{ forloop.counter0 }}" value="{{ line.unit_price }}"></td></tr>
-        {% empty %}<tr><td colspan="4" class="muted">AI không đọc được dòng hàng nào.</td></tr>{% endfor %}
-        </tbody>
-    </table></div>
-    <p style="margin-top:1rem; display:flex; gap:.5rem;">
-        <button class="btn btn-green" type="submit">Xác nhận → tạo PO nháp</button>
-        <button class="btn btn-danger" type="submit" name="action" value="discard" formnovalidate>Hủy, đọc hóa đơn khác</button>
-    </p>
+
+    <div class="card card-flush mt">
+        <div class="card-head" style="padding-bottom:.9rem"><h2>Dòng hàng</h2><span class="hint">Chọn "bỏ qua" cho dòng không phải hàng hóa (phí vận chuyển…)</span></div>
+        <div class="table-wrap"><table>
+            <thead><tr><th>Dòng trên hóa đơn</th><th>Sản phẩm trong hệ thống</th><th class="num">Số lượng</th><th class="num">Đơn giá</th></tr></thead>
+            <tbody>
+            {% for line in preview.lines %}
+                <tr><td><span class="cell-title">{{ line.name }}</span><span class="cell-sub">{% if line.sku %}{{ line.sku }} · {% endif %}độ khớp {{ line.match_score }}</span></td>
+                    <td><select name="product_{{ forloop.counter0 }}" style="max-width:360px"><option value="">— bỏ qua dòng này —</option>
+                        {% for p in products %}<option value="{{ p.pk }}" {% if p.pk == line.product_id %}selected{% endif %}>{{ p.sku }} – {{ p.name }}</option>{% endfor %}</select></td>
+                    <td class="num"><input class="qty" type="number" min="0" name="qty_{{ forloop.counter0 }}" value="{{ line.quantity }}"></td>
+                    <td class="num"><input class="qty" style="width:8.5rem" type="number" min="0" step="1" name="price_{{ forloop.counter0 }}" value="{{ line.unit_price }}"></td></tr>
+            {% empty %}<tr><td colspan="4" class="empty">{% icon "receipt" %}AI không đọc được dòng hàng nào.</td></tr>{% endfor %}
+            </tbody>
+        </table></div>
+        <div class="sticky-actions">
+            <button class="btn btn-green" type="submit">{% icon "check" %}Xác nhận → tạo PO nháp</button>
+            <button class="btn btn-danger" type="submit" name="action" value="discard" formnovalidate>{% icon "x" %}Hủy, đọc hóa đơn khác</button>
+        </div>
+    </div>
 </form>
 {% endif %}
 {% endblock %}

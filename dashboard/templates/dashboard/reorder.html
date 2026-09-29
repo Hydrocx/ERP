@@ -1,51 +1,59 @@
 {% extends "base.html" %}
+{% load erp_tags %}
 {% block title %}Đề xuất nhập hàng{% endblock %}
 {% block content %}
-<div class="toolbar">
-    <div><h1>Đề xuất nhập hàng</h1>
-        <span class="muted small">Số lượng do công thức ROP / tồn an toàn tính; AI xem lại và giải thích, chỉ được điều chỉnh trong biên cho phép.
-        {% if last_run %}Lần chạy gần nhất: {{ last_run|date:"d/m/Y H:i" }}.{% endif %}</span></div>
-    {% if can_run %}
-    <form method="post" action="{% url 'dashboard:reorder_run' %}" onsubmit="this.querySelector('button').disabled=true;">
-        {% csrf_token %}<button class="btn btn-light" type="submit">Chạy dự báo ngay</button>
-    </form>
-    {% endif %}
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Mua hàng · F1</p>
+        <h1>Đề xuất nhập hàng</h1>
+        <p class="sub">Số lượng do công thức ROP / tồn an toàn tính theo từng kho; AI xem lại, giải thích và chỉ được điều chỉnh trong biên cho phép.
+            {% if last_run %}Lần chạy gần nhất: <strong>{{ last_run|date:"d/m/Y H:i" }}</strong>.{% endif %}</p>
+    </div>
+    <div class="page-actions">
+        <form method="get">
+            <select name="warehouse" onchange="this.form.submit()" aria-label="Lọc theo kho"><option value="">Tất cả kho</option>
+                {% for w in warehouses %}<option value="{{ w.code }}" {% if warehouse == w.code %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select>
+        </form>
+        {% if can_run %}
+        <form method="post" action="{% url 'dashboard:reorder_run' %}" onsubmit="const b=this.querySelector('button'); b.disabled=true; b.querySelector('.label').textContent='Đang chạy dự báo…';">
+            {% csrf_token %}<button class="btn btn-ai" type="submit">{% icon "refresh" %}<span class="label">Chạy dự báo ngay</span></button>
+        </form>
+        {% endif %}
+    </div>
 </div>
-<form class="filters" method="get">
-    <label>Kho<select name="warehouse" onchange="this.form.submit()"><option value="">Tất cả</option>
-        {% for w in warehouses %}<option value="{{ w.code }}" {% if warehouse == w.code %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></label>
-</form>
 
-<form method="post" class="card">
+<form method="post" class="card card-flush">
     {% csrf_token %}
+    <div class="card-head" style="padding-bottom:.9rem"><h2>{{ suggestions|length }} đề xuất đang chờ duyệt</h2>
+        <span class="hint"><span class="badge badge-ai">AI</span> khuyến nghị của AI · <span class="badge badge-muted">Công thức</span> chưa có AI</span></div>
     <div class="table-wrap"><table>
         <thead><tr>{% if can_approve %}<th><input type="checkbox" aria-label="Chọn tất cả" onclick="document.querySelectorAll('input[name=selected]').forEach(c => c.checked = this.checked)"></th>{% endif %}
-            <th>Sản phẩm</th><th>Kho</th><th>NCC</th><th class="num">Khả dụng</th><th class="num">Đang về</th><th class="num">ROP</th>
-            <th class="num">Hệ thống</th><th>AI</th><th class="num">SL duyệt</th><th>Lý do</th></tr></thead>
+            <th>Sản phẩm</th><th>Kho · NCC</th><th class="num">Khả dụng</th><th class="num">Đang về</th><th class="num">ROP</th>
+            <th class="num">Hệ thống</th><th>AI khuyến nghị</th><th class="num">SL duyệt</th><th>Lý do</th></tr></thead>
         <tbody>
         {% for s in suggestions %}
             <tr>
-                {% if can_approve %}<td><input type="checkbox" name="selected" value="{{ s.pk }}"></td>{% endif %}
-                <td><a href="{% url 'dashboard:product' s.product.sku %}">{{ s.product.name }}</a><br><span class="muted small">{{ s.product.sku }}</span></td>
-                <td>{{ s.warehouse.code }}</td><td class="small">{{ s.supplier.code }}</td>
-                <td class="num">{{ s.available }}</td><td class="num">{{ s.on_order }}</td><td class="num">{{ s.reorder_point }}</td>
+                {% if can_approve %}<td><input type="checkbox" name="selected" value="{{ s.pk }}" aria-label="Chọn {{ s.product.sku }}"></td>{% endif %}
+                <td><a class="cell-title" href="{% url 'dashboard:product' s.product.sku %}">{{ s.product.name }}</a><span class="cell-sub">{{ s.product.sku }}</span></td>
+                <td><span class="badge badge-blue">{{ s.warehouse.code }}</span><span class="cell-sub">{{ s.supplier.code }}</span></td>
+                <td class="num {% if s.available <= 0 %}down{% endif %}"><strong>{{ s.available }}</strong></td><td class="num">{{ s.on_order }}</td><td class="num">{{ s.reorder_point }}</td>
                 <td class="num">{{ s.suggested_qty }}</td>
                 <td>{% if s.ai_action %}<span class="badge {% if s.ai_flagged %}badge-low{% elif s.ai_action == 'order' %}badge-ai{% else %}badge-muted{% endif %}">{{ s.get_ai_action_display }}{% if s.ai_adjusted_qty is not None %} · {{ s.ai_adjusted_qty }}{% endif %}</span>
-                    {% if s.ai_confidence %}<br><span class="small muted">tin cậy: {{ s.ai_confidence }}</span>{% endif %}
+                    {% if s.ai_confidence %}<span class="cell-sub">tin cậy: {{ s.ai_confidence }}</span>{% endif %}
                     {% else %}<span class="badge badge-muted">Công thức</span>{% endif %}</td>
-                <td class="num">{% if can_approve %}<input class="qty" type="number" min="0" name="qty_{{ s.pk }}" value="{{ s.recommended_qty }}">{% else %}{{ s.recommended_qty }}{% endif %}</td>
-                <td class="small">{{ s.ai_reason }}</td>
+                <td class="num">{% if can_approve %}<input class="qty" type="number" min="0" name="qty_{{ s.pk }}" value="{{ s.recommended_qty }}" aria-label="Số lượng duyệt {{ s.product.sku }}">{% else %}<strong>{{ s.recommended_qty }}</strong>{% endif %}</td>
+                <td><div class="reason">{{ s.ai_reason }}</div></td>
             </tr>
-        {% empty %}<tr><td colspan="11" class="muted">Không có đề xuất đang chờ duyệt.</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="10" class="empty">{% icon "check" %}Không có đề xuất đang chờ duyệt.</td></tr>{% endfor %}
         </tbody>
     </table></div>
     {% if can_approve and suggestions %}
-    <p style="margin-top:1rem; display:flex; gap:.5rem; flex-wrap:wrap;">
-        <button class="btn btn-green" type="submit" name="action" value="approve">Duyệt → tạo PO nháp</button>
-        <button class="btn btn-danger" type="submit" name="action" value="reject">Từ chối</button>
+    <div class="sticky-actions">
+        <button class="btn btn-green" type="submit" name="action" value="approve">{% icon "check" %}Duyệt → tạo PO nháp</button>
+        <button class="btn btn-danger" type="submit" name="action" value="reject">{% icon "x" %}Từ chối</button>
         <a class="btn btn-light" href="{{ po_url }}">Xem PO do AI tạo</a>
-    </p>
-    <p class="small muted">PO được gom theo nhà cung cấp × kho, ở trạng thái Nháp. Quản lý duyệt PO trong trang quản trị.</p>
+        <span class="muted small">PO được gom theo nhà cung cấp × kho, trạng thái Nháp; Quản lý duyệt trong trang quản trị.</span>
+    </div>
     {% endif %}
 </form>
 {% endblock %}

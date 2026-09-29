@@ -1,14 +1,21 @@
 {% extends "base.html" %}
+{% load erp_tags %}
 {% block title %}Trang chủ{% endblock %}
 {% block content %}
-<section class="hero card">
-    <h1>Mini ERP – Quản lý kho & đơn hàng tích hợp AI</h1>
-    <p class="muted">Danh mục · Mua hàng · Bán hàng · Tồn kho · Dự báo nhập hàng · Báo cáo AI · Trợ lý hỏi đáp dữ liệu</p>
+<section class="hero">
+    <p class="eyebrow" style="color:#9fe58f">Wagtail CMS · AI</p>
+    <h1>Mini ERP – Quản lý kho &amp; đơn hàng tích hợp AI</h1>
+    <p>Danh mục, mua hàng, bán hàng, tồn kho theo kho; dự báo nhập hàng theo mùa vụ, báo cáo AI có duyệt, trợ lý hỏi đáp dữ liệu và đọc hóa đơn nhà cung cấp.</p>
     {% if user.is_authenticated %}
-        <p><a class="btn" href="{% url 'dashboard:home' %}">Mở dashboard</a>
-           {% if perms.wagtailadmin.access_admin %}<a class="btn btn-light" href="/admin/">Trang quản trị</a>{% endif %}</p>
+        <a class="btn btn-green" href="{% url 'dashboard:home' %}">Mở dashboard {% icon "arrow-right" %}</a>
     {% else %}
-        <p><a class="btn" href="{% url 'login' %}">Đăng nhập</a></p>
+        <a class="btn btn-green" href="{% url 'login' %}">Đăng nhập {% icon "arrow-right" %}</a>
     {% endif %}
 </section>
+<div class="feature-grid">
+    <div class="card feature"><span class="q-icon">{% icon "warehouse" %}</span><h3>Tồn kho chính xác</h3><p class="small muted">Mọi thay đổi đi qua sổ kho, không âm kho, giữ hàng cho đơn bán.</p></div>
+    <div class="card feature"><span class="q-icon">{% icon "truck" %}</span><h3>Đề xuất nhập hàng</h3><p class="small muted">ROP và tồn an toàn theo kho, có mùa vụ; AI xem lại trong biên cho phép.</p></div>
+    <div class="card feature"><span class="q-icon">{% icon "chart" %}</span><h3>Báo cáo AI</h3><p class="small muted">KPI do hệ thống tính, AI viết nhận xét, người phụ trách duyệt trước khi xuất bản.</p></div>
+    <div class="card feature"><span class="q-icon">{% icon "sparkles" %}</span><h3>Trợ lý dữ liệu</h3><p class="small muted">Hỏi bằng tiếng Việt, AI tra cứu qua các hàm có sẵn, không bịa số.</p></div>
+</div>
 {% endblock %}

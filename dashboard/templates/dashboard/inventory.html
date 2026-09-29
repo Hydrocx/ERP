@@ -2,39 +2,53 @@
 {% load erp_tags %}
 {% block title %}Tồn kho{% endblock %}
 {% block content %}
-<div class="toolbar"><h1>Tồn kho</h1><span class="muted">Tổng giá trị (theo bộ lọc): <strong>{{ total_value|vnd }}</strong></span></div>
-<form class="filters card" method="get">
-    <label>Tìm kiếm<input type="search" name="q" value="{{ filters.q }}" placeholder="Tên hoặc SKU"></label>
-    <label>Kho<select name="warehouse"><option value="">Tất cả</option>
-        {% for w in warehouses %}<option value="{{ w.code }}" {% if filters.warehouse == w.code %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></label>
-    <label>Danh mục<select name="category"><option value="">Tất cả</option>
-        {% for c in categories %}<option value="{{ c.pk }}" {% if filters.category == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
-    <label>Tình trạng<select name="status"><option value="">Tất cả</option>
-        <option value="out" {% if filters.status == "out" %}selected{% endif %}>Hết hàng</option>
-        <option value="low" {% if filters.status == "low" %}selected{% endif %}>Sắp hết</option>
-        <option value="ok" {% if filters.status == "ok" %}selected{% endif %}>Đủ hàng</option></select></label>
-    <button class="btn" type="submit">Lọc</button>
-    <a class="btn btn-light" href="{% url 'dashboard:inventory' %}">Xóa lọc</a>
+<div class="page-head">
+    <div>
+        <p class="eyebrow">Kho hàng</p>
+        <h1>Tồn kho</h1>
+        <p class="sub">Tồn thực tế, hàng đã giữ cho đơn bán, tồn khả dụng và điểm đặt hàng lại (ROP) theo từng kho.</p>
+    </div>
+    <div class="card kpi kpi-navy" style="padding:.8rem 1.1rem; min-width:220px;">
+        <span class="label">Giá trị tồn (theo bộ lọc)</span>
+        <span class="value" style="font-size:1.35rem">{{ total_value|vnd }}</span>
+    </div>
+</div>
+
+<form class="card filter-bar" method="get">
+    <div class="filters">
+        <label class="grow">Tìm kiếm<input type="search" name="q" value="{{ filters.q }}" placeholder="Tên hoặc mã SKU"></label>
+        <label>Kho<select name="warehouse"><option value="">Tất cả kho</option>
+            {% for w in warehouses %}<option value="{{ w.code }}" {% if filters.warehouse == w.code %}selected{% endif %}>{{ w.name }}</option>{% endfor %}</select></label>
+        <label>Danh mục<select name="category"><option value="">Tất cả danh mục</option>
+            {% for c in categories %}<option value="{{ c.pk }}" {% if filters.category == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>{% endfor %}</select></label>
+        <label>Tình trạng<select name="status"><option value="">Tất cả</option>
+            <option value="out" {% if filters.status == "out" %}selected{% endif %}>Hết hàng</option>
+            <option value="low" {% if filters.status == "low" %}selected{% endif %}>Sắp hết</option>
+            <option value="ok" {% if filters.status == "ok" %}selected{% endif %}>Đủ hàng</option></select></label>
+        <button class="btn" type="submit">{% icon "filter" %}Lọc</button>
+        <a class="btn btn-light" href="{% url 'dashboard:inventory' %}">Xóa lọc</a>
+    </div>
 </form>
-<div class="card table-wrap">
-    <table>
+
+<div class="card card-flush">
+    <div class="table-wrap"><table>
         <thead><tr><th>Sản phẩm</th><th>Danh mục</th><th>Kho</th><th class="num">Tồn</th><th class="num">Giữ</th>
             <th class="num">Khả dụng</th><th class="num">ROP</th><th class="num">Giá trị</th><th>Tình trạng</th></tr></thead>
         <tbody>
         {% for lv in page %}
-            <tr><td><a href="{% url 'dashboard:product' lv.product.sku %}">{{ lv.product.name }}</a><br><span class="muted small">{{ lv.product.sku }}</span></td>
-                <td>{{ lv.product.category.name }}</td><td>{{ lv.warehouse.code }}</td>
-                <td class="num">{{ lv.on_hand }}</td><td class="num">{{ lv.reserved }}</td><td class="num"><strong>{{ lv.available }}</strong></td>
+            <tr><td><a class="cell-title" href="{% url 'dashboard:product' lv.product.sku %}">{{ lv.product.name }}</a><span class="cell-sub">{{ lv.product.sku }}</span></td>
+                <td class="muted">{{ lv.product.category.name }}</td><td><span class="badge badge-blue">{{ lv.warehouse.code }}</span></td>
+                <td class="num">{{ lv.on_hand }}</td><td class="num muted">{{ lv.reserved }}</td><td class="num"><strong>{{ lv.available }}</strong></td>
                 <td class="num">{{ lv.effective_reorder_point }}</td><td class="num">{{ lv.stock_value|vnd }}</td>
                 <td><span class="badge badge-{{ lv.status_code }}">{{ lv.status }}</span></td></tr>
-        {% empty %}<tr><td colspan="9" class="muted">Không có dữ liệu phù hợp.</td></tr>{% endfor %}
+        {% empty %}<tr><td colspan="9" class="empty">{% icon "search" %}Không có dữ liệu phù hợp với bộ lọc.</td></tr>{% endfor %}
         </tbody>
-    </table>
+    </table></div>
     {% if page.has_other_pages %}
     <div class="pagination">
-        {% if page.has_previous %}<a class="btn btn-light" href="?{{ querystring }}&page={{ page.previous_page_number }}">← Trước</a>{% endif %}
-        <span class="muted">Trang {{ page.number }}/{{ page.paginator.num_pages }}</span>
-        {% if page.has_next %}<a class="btn btn-light" href="?{{ querystring }}&page={{ page.next_page_number }}">Sau →</a>{% endif %}
+        <span class="muted small">Trang {{ page.number }}/{{ page.paginator.num_pages }} · {{ page.paginator.count }} dòng</span>
+        {% if page.has_previous %}<a class="btn btn-light btn-sm" href="?{{ querystring }}&page={{ page.previous_page_number }}">{% icon "back" %}Trước</a>{% endif %}
+        {% if page.has_next %}<a class="btn btn-light btn-sm" href="?{{ querystring }}&page={{ page.next_page_number }}">Sau{% icon "arrow-right" %}</a>{% endif %}
     </div>
     {% endif %}
 </div>

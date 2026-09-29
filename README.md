@@ -69,7 +69,7 @@ toàn bộ trang frontend và lệnh seed. Test không gọi OpenAI thật.
 - Video (1 phút 43 giây, có phụ đề từng bước): [docs/demo/demo.mp4](docs/demo/demo.mp4)
 - Ảnh chụp màn hình: [docs/screenshots/](docs/screenshots/)
 - Quay lại video: `python scripts/record_demo.py --channel msedge` (xem hướng dẫn đầu file).
-  Video hiện tại được quay **khi chưa có `OPENAI_API_KEY`**, nên các màn hình AI đang hiển thị phương án dự phòng.
+  Video hiện tại được quay với **Google Gemini** (`gemini-flash-lite-latest`), các màn hình AI là kết quả thật.
 
 ![Dashboard](docs/screenshots/01-dashboard.png)
 

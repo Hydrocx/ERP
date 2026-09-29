@@ -1,0 +1,9 @@
+/* Wagtail admin in the company palette: navy #000080 (primary), blue #0069ba (secondary). */
+:root {
+    --w-color-primary-hue: 240;
+    --w-color-primary-saturation: 100%;
+    --w-color-primary-lightness: 25.1%;
+    --w-color-secondary-hue: 206;
+    --w-color-secondary-saturation: 100%;
+    --w-color-secondary-lightness: 36.5%;
+}

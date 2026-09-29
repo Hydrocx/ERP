@@ -1,50 +1,110 @@
-{% load static wagtailcore_tags wagtailuserbar %}<!DOCTYPE html>
+{% load static wagtailcore_tags wagtailuserbar erp_tags %}<!DOCTYPE html>
 <html lang="vi">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}{% if page.seo_title %}{{ page.seo_title }}{% elif page %}{{ page.title }}{% endif %}{% endblock %} · Mini ERP</title>
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="{% static 'css/erp.css' %}">
     <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.4/dist/htmx.min.js" defer></script>
     {% block extra_head %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
-    {% wagtailuserbar %}
-    <header class="topbar">
-        <a class="brand" href="{% if user.is_authenticated %}{% url 'dashboard:home' %}{% else %}/{% endif %}">Mini&nbsp;ERP</a>
-        {% if user.is_authenticated %}
-            {% with url_name=request.resolver_match.url_name %}
-            <nav class="nav">
-                <a href="{% url 'dashboard:home' %}" {% if url_name == 'home' %}class="active"{% endif %}>Dashboard</a>
-                <a href="{% url 'dashboard:inventory' %}" {% if url_name == 'inventory' or url_name == 'product' %}class="active"{% endif %}>Tồn kho</a>
-                {% if perms.forecast.view_reordersuggestion %}<a href="{% url 'dashboard:reorder' %}" {% if url_name == 'reorder' %}class="active"{% endif %}>Đề xuất nhập hàng</a>{% endif %}
-                {% if perms.purchasing.add_purchaseorder %}<a href="{% url 'dashboard:invoice' %}" {% if url_name == 'invoice' %}class="active"{% endif %}>Nhập hóa đơn</a>{% endif %}
-                <a href="{% url 'dashboard:reports' %}" {% if url_name == 'reports' or page %}class="active"{% endif %}>Báo cáo</a>
-                {% if perms.ai.use_assistant %}<a href="{% url 'dashboard:assistant' %}" {% if url_name == 'assistant' %}class="active"{% endif %}>Trợ lý AI</a>{% endif %}
-                {% if perms.wagtailadmin.access_admin %}<a href="/admin/">Quản trị</a>{% endif %}
-            </nav>
-            {% endwith %}
-            <form class="user" method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <span>{{ user.get_full_name|default:user.username }}</span>
-                <button type="submit" class="link">Đăng xuất</button>
+<body class="{% if user.is_authenticated %}layout-app{% else %}layout-public{% endif %} {% block body_class %}{% endblock %}" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
+{% include "dashboard/_icons.html" %}
+{% if page %}{% wagtailuserbar "bottom-right" %}{% endif %}
+{% with url_name=request.resolver_match.url_name %}
+{% if user.is_authenticated %}
+    <input type="checkbox" id="nav-toggle" class="nav-toggle">
+    <aside class="sidebar" aria-label="Điều hướng">
+        <a class="brand" href="{% url 'dashboard:home' %}">
+            <span class="brand-mark">{% icon "box" 20 %}</span>
+            <span class="brand-text">Mini ERP<small>Kho &amp; đơn hàng</small></span>
+        </a>
+        <nav class="side-nav">
+            <div class="nav-section">Tổng quan</div>
+            <a href="{% url 'dashboard:home' %}" class="{% if url_name == 'home' %}active{% endif %}">{% icon "dashboard" %}<span>Dashboard</span></a>
+            <a href="{% url 'dashboard:inventory' %}" class="{% if url_name == 'inventory' or url_name == 'product' %}active{% endif %}">{% icon "warehouse" %}<span>Tồn kho</span></a>
+
+            {% if perms.forecast.view_reordersuggestion or perms.purchasing.add_purchaseorder %}<div class="nav-section">Mua hàng</div>{% endif %}
+            {% if perms.forecast.view_reordersuggestion %}<a href="{% url 'dashboard:reorder' %}" class="{% if url_name == 'reorder' %}active{% endif %}">{% icon "truck" %}<span>Đề xuất nhập hàng</span></a>{% endif %}
+            {% if perms.purchasing.add_purchaseorder %}<a href="{% url 'dashboard:invoice' %}" class="{% if url_name == 'invoice' %}active{% endif %}">{% icon "receipt" %}<span>Nhập hóa đơn</span></a>{% endif %}
+
+            <div class="nav-section">Phân tích</div>
+            <a href="{% url 'dashboard:reports' %}" class="{% if url_name == 'reports' or page %}active{% endif %}">{% icon "chart" %}<span>Báo cáo</span></a>
+            {% if perms.ai.use_assistant %}<a href="{% url 'dashboard:assistant' %}" class="{% if url_name == 'assistant' %}active{% endif %}">{% icon "sparkles" %}<span>Trợ lý AI</span></a>{% endif %}
+
+            {% if perms.wagtailadmin.access_admin %}
+            <div class="nav-section">Hệ thống</div>
+            <a href="/admin/">{% icon "sliders" %}<span>Quản trị Wagtail</span></a>
+            {% endif %}
+        </nav>
+        <div class="side-footer">
+            <span class="avatar">{{ user.get_full_name|default:user.username|slice:":1"|upper }}</span>
+            <span class="who"><strong>{{ user.get_full_name|default:user.username }}</strong>
+                <small>{% if user.is_superuser %}Quản trị viên{% else %}{{ user.groups.all.0.name|default:"Người dùng" }}{% endif %}</small></span>
+            <form method="post" action="{% url 'logout' %}">{% csrf_token %}
+                <button type="submit" class="icon-btn" title="Đăng xuất" aria-label="Đăng xuất">{% icon "logout" %}</button>
             </form>
-        {% else %}
-            <nav class="nav"><a href="{% url 'login' %}">Đăng nhập</a></nav>
-        {% endif %}
+        </div>
+    </aside>
+    <label for="nav-toggle" class="nav-backdrop" aria-hidden="true"></label>
+
+    <div class="shell">
+        <header class="appbar">
+            <label for="nav-toggle" class="icon-btn menu-btn" aria-label="Mở menu">{% icon "menu" %}</label>
+            <form class="appbar-search" action="{% url 'dashboard:inventory' %}" method="get" role="search">
+                {% icon "search" %}<input type="search" name="q" placeholder="Tìm sản phẩm theo tên hoặc SKU…" value="{% if url_name == 'inventory' %}{{ request.GET.q|default:'' }}{% endif %}" aria-label="Tìm sản phẩm">
+            </form>
+            <div class="appbar-right">
+                {% if ai_status %}
+                <span class="ai-pill {% if ai_status.enabled %}on{% else %}off{% endif %}" title="Model: {{ ai_status.model }}">
+                    <span class="dot"></span>AI {{ ai_status.provider }} · {% if ai_status.enabled %}{{ ai_status.model }}{% else %}chưa cấu hình{% endif %}
+                </span>
+                {% endif %}
+                <span class="today">{% now "d/m/Y" %}</span>
+            </div>
+        </header>
+{% else %}
+    <header class="public-bar">
+        <a class="brand" href="/"><span class="brand-mark">{% icon "box" 20 %}</span><span class="brand-text">Mini ERP<small>Kho &amp; đơn hàng</small></span></a>
+        {% if url_name != 'login' %}<a class="btn btn-primary" href="{% url 'login' %}">Đăng nhập</a>{% endif %}
     </header>
+{% endif %}
 
-    <main class="container">
-        {% if messages %}
-            <ul class="messages">
-                {% for message in messages %}<li class="msg msg-{{ message.tags }}">{{ message }}</li>{% endfor %}
-            </ul>
-        {% endif %}
-        {% block content %}{% endblock %}
-    </main>
+        <main class="{% if user.is_authenticated %}content{% else %}public-content{% endif %}">
+            {% if messages %}
+                <div class="messages">
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }}" role="status">
+                        {% if message.tags == "success" %}{% icon "check" %}{% elif message.tags == "error" or message.tags == "warning" %}{% icon "alert" %}{% else %}{% icon "info" %}{% endif %}
+                        <span>{{ message }}</span>
+                        <button type="button" class="alert-close" onclick="this.parentElement.remove()" aria-label="Đóng">{% icon "x" 16 %}</button>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </main>
 
-    <footer class="footer">Mini ERP · Wagtail CMS + OpenAI · Số liệu do hệ thống tính, AI chỉ diễn giải và gợi ý.</footer>
-    {% block extra_js %}{% endblock %}
+{% if user.is_authenticated %}
+        <footer class="footer">Mini ERP · Wagtail CMS + AI · Số liệu do hệ thống tính, AI chỉ diễn giải và gợi ý.</footer>
+    </div>
+{% endif %}
+{% endwith %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        if (window.Chart) {  // shared chart look
+            Chart.defaults.font.family = "'Be Vietnam Pro', Arial, sans-serif";
+            Chart.defaults.color = "#6b7489";
+            Chart.defaults.borderColor = "#edf0f5";
+            Chart.defaults.plugins.tooltip.backgroundColor = "#0b1437";
+            Chart.defaults.plugins.tooltip.padding = 10;
+            Chart.defaults.plugins.tooltip.cornerRadius = 8;
+        }
+    });
+</script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

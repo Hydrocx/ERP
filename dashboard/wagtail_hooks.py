@@ -1,4 +1,6 @@
+from django.templatetags.static import static
 from django.urls import reverse
+from django.utils.html import format_html
 from wagtail import hooks
 from wagtail.admin.menu import MenuItem
 from wagtail.admin.ui.components import Component
@@ -36,6 +38,11 @@ class StockAlertPanel(Component):
 @hooks.register("construct_homepage_panels")
 def add_stock_alert_panel(request, panels):
     panels.insert(0, StockAlertPanel())
+
+
+@hooks.register("insert_global_admin_css")
+def admin_theme_css():
+    return format_html('<link rel="stylesheet" href="{}">', static("dashboard/admin_theme.css"))
 
 
 @hooks.register("register_admin_menu_item")

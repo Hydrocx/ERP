@@ -1,7 +1,8 @@
 {% load erp_tags %}
-{% if question %}<div class="bubble user">{{ question }}</div>{% endif %}
+{% if question %}<div class="msg user"><span class="who-icon">{% icon "user" %}</span><div class="bubble">{{ question }}</div></div>{% endif %}
 {% if answer %}
-    <div class="bubble bot">{{ answer|simple_markdown }}{% if tools %}<p class="small muted">Nguồn dữ liệu: {{ tools|join:", " }}</p>{% endif %}</div>
+    <div class="msg bot"><span class="who-icon">{% icon "sparkles" %}</span>
+        <div class="bubble">{{ answer|simple_markdown }}{% if tools %}<span class="source">{% icon "info" 13 %}Nguồn dữ liệu: {{ tools|join:", " }}</span>{% endif %}</div></div>
 {% elif error %}
-    <div class="bubble error">{{ error }}</div>
+    <div class="msg bot error"><span class="who-icon">{% icon "alert" %}</span><div class="bubble">{{ error }}</div></div>
 {% endif %}
