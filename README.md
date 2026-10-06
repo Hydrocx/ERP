@@ -19,6 +19,7 @@ dự phòng (công thức / mẫu) khi không có API key hoặc AI lỗi.
 | Frontend `/app/` | Dashboard KPI + Chart.js, tồn kho có lọc, chi tiết sản phẩm (biểu đồ 52 tuần + dự báo + nút *Phân tích AI*), đề xuất nhập hàng, nhập hóa đơn, báo cáo, trợ lý (HTMX) |
 | Phân quyền | 4 nhóm: Quản lý, Thủ kho, Mua hàng, Bán hàng (`setup_roles`) |
 | Vận hành | Nhật ký gọi AI (token, thời gian, lỗi), cấu hình AI trong Wagtail Settings, scheduler hằng ngày/tuần, Docker Compose |
+| **BI – Apache Superset** | PostgreSQL + Superset chạy bằng Docker; schema `analytics` gồm 13 view chỉ-đọc (dimension / fact / mart, có phân khúc khách hàng RFM); dashboard 13 biểu đồ tạo tự động qua REST API; lệnh đối chiếu số liệu với ORM |
 
 ## Chạy nhanh
 
@@ -32,6 +33,20 @@ python manage.py setup_demo                 # database + dữ liệu mẫu + tà
                                             # nhanh hơn: setup_demo --quick (~2-3 phút, 60 ngày, không có mùa vụ)
 python manage.py runserver
 ```
+
+### Bật dashboard phân tích (Apache Superset)
+
+```bash
+docker compose -f docker-compose.analytics.yml up -d --build   # PostgreSQL 5433 + Superset 8089
+python manage.py migrate
+python manage.py copy_sqlite_to_postgres     # hoặc: python manage.py setup_demo
+python manage.py create_analytics_views      # schema analytics + role chỉ-đọc
+python manage.py provision_superset          # dataset + biểu đồ + dashboard
+python manage.py verify_analytics            # đối chiếu số liệu với ORM
+```
+
+Dashboard: <http://127.0.0.1:8089/superset/dashboard/mini-erp-crm/> ·
+chi tiết trong [docs/SUPERSET.md](docs/SUPERSET.md).
 
 > **Thành viên mới clone repo:** database (`db.sqlite3`) và file `.env` **không có trong git**, nên sau khi
 > `git clone`/`git pull` phải chạy `python manage.py setup_demo` một lần thì mới có dữ liệu và các tài khoản bên dưới.
@@ -55,6 +70,10 @@ Tài khoản dev: `admin / admin123` (superuser); `quanly`, `thukho`, `muahang`,
 | `run_forecast [--date] [--no-ai]` | Dự báo, cập nhật ROP theo kho, tạo đề xuất nhập hàng, AI giải thích |
 | `generate_weekly_report [--start --end] [--user] [--no-ai]` | Tạo báo cáo (mặc định tuần trước) dạng trang nháp, gửi duyệt |
 | `ai_selftest` | Gọi thử từng tính năng AI với OpenAI thật (sau khi điền `OPENAI_API_KEY`) |
+| `create_analytics_views` | Tạo schema `analytics` (view cho Superset) + role Postgres chỉ-đọc |
+| `provision_superset` | Tạo kết nối / dataset / biểu đồ / dashboard trong Superset qua REST API |
+| `verify_analytics` | Đối chiếu số liệu view SQL với KPI tính bằng Django ORM |
+| `copy_sqlite_to_postgres` | Chuyển dữ liệu từ `db.sqlite3` sang PostgreSQL |
 | `run_scheduler [--once]` | Vòng lặp chạy dự báo hằng ngày và báo cáo thứ Hai (dùng trong Docker) |
 
 ## Kiểm thử
@@ -76,12 +95,17 @@ toàn bộ trang frontend và lệnh seed. Test không gọi OpenAI thật.
 
 ![Dashboard](docs/screenshots/01-dashboard.png)
 
+Dashboard Superset (BI) — số liệu đã được `verify_analytics` đối chiếu với ORM:
+
+![Superset](docs/screenshots/20-superset-dashboard.png)
+
 ## Tài liệu
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) – kiến trúc, ERD, luồng nghiệp vụ, thiết kế AI, công thức dự báo, phân quyền
 - [docs/DEPLOY.md](docs/DEPLOY.md) – biến môi trường, local, Docker Compose, VPS/PaaS, chi phí & an toàn AI
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) – hướng dẫn theo vai trò
 - [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) – kịch bản demo 5 phút
+- [docs/SUPERSET.md](docs/SUPERSET.md) – tích hợp Apache Superset: kiến trúc, bảo mật, lớp analytics, dashboard
 
 ## Công nghệ
 
@@ -101,6 +125,8 @@ forecast/     engine (công thức), DemandForecast, ReorderSuggestion, run_fore
 ai/           AISettings, AICallLog, client OpenAI, prompts, services (F1/F2), assistant (F3)
 reports/      KPI, ReportIndexPage / AIReportPage, generate_weekly_report
 dashboard/    frontend /app/, panel admin
+analytics/    lớp dữ liệu cho Superset: SQL view, spec dashboard, lệnh provisioning
+superset/     Dockerfile, cấu hình và script khởi tạo Superset
 scripts/      record_demo.py (quay video demo bằng Playwright)
 tests/        pytest
 docs/         tài liệu, video demo, ảnh chụp màn hình

@@ -1,0 +1,115 @@
+# Stack phân tích: PostgreSQL (dữ liệu ERP) + Apache Superset (BI)
+#
+#   docker compose -f docker-compose.analytics.yml up -d
+#
+# Cổng dùng 5433 / 8089 (không phải 5432 / 8088) để không đụng các container
+# Postgres hoặc Superset khác có thể đang chạy trên máy.
+#
+# Cả hai cổng chỉ mở trên 127.0.0.1, không mở ra mạng ngoài.
+#
+# Django vẫn chạy ngoài Docker (python manage.py runserver) và kết nối vào
+# Postgres này qua DATABASE_URL=postgres://erp:erp@127.0.0.1:5433/erp
+#
+# Dùng 127.0.0.1 chứ KHÔNG dùng localhost: trên Windows localhost phân giải ra
+# ::1 trước, mà cổng dưới đây chỉ mở trên IPv4, nên mỗi lần mở kết nối phải chờ
+# hết timeout TCP (đo được ~130 giây cho kết nối đầu tiên của mỗi tiến trình).
+
+services:
+  # ---------------------------------------------------------------- dữ liệu ERP
+  erp_db:
+    image: postgres:16-alpine
+    container_name: erp_postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-erp}
+      POSTGRES_USER: ${POSTGRES_USER:-erp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-erp}
+      # Sắp xếp theo tiếng Việt cho ORDER BY trên tên sản phẩm / khách hàng
+      LANG: C.UTF-8
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - erp_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-erp} -d ${POSTGRES_DB:-erp}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # ------------------------------------------- CSDL nội bộ của Superset (metadata)
+  # Tách riêng khỏi dữ liệu ERP: Superset lưu dashboard, người dùng, quyền ở đây.
+  superset_meta:
+    image: postgres:16-alpine
+    container_name: erp_superset_meta
+    environment:
+      POSTGRES_DB: superset
+      POSTGRES_USER: superset
+      POSTGRES_PASSWORD: ${SUPERSET_META_PASSWORD:-superset}
+    volumes:
+      - superset_metadata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U superset -d superset"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+
+  superset_cache:
+    image: redis:7-alpine
+    container_name: erp_superset_cache
+    volumes:
+      - superset_redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  # -------------------------------------------------------------------- Superset
+  superset:
+    build:
+      context: ./superset
+      args:
+        SUPERSET_VERSION: ${SUPERSET_VERSION:-4.1.1}
+    image: erp-superset:local
+    container_name: erp_superset
+    depends_on:
+      superset_meta:
+        condition: service_healthy
+      superset_cache:
+        condition: service_healthy
+      erp_db:
+        condition: service_healthy
+    environment:
+      SUPERSET_CONFIG_PATH: /app/pythonpath/superset_config.py
+      SUPERSET_SECRET_KEY: ${SUPERSET_SECRET_KEY:?Thiếu SUPERSET_SECRET_KEY trong .env}
+      SUPERSET_ADMIN_USER: ${SUPERSET_ADMIN_USER:-admin}
+      SUPERSET_ADMIN_PASSWORD: ${SUPERSET_ADMIN_PASSWORD:?Thiếu SUPERSET_ADMIN_PASSWORD trong .env}
+      SUPERSET_META_PASSWORD: ${SUPERSET_META_PASSWORD:-superset}
+      # Kết nối tới dữ liệu ERP bằng role CHỈ-ĐỌC (không dùng user erp)
+      ERP_DB_HOST: erp_db
+      ERP_DB_PORT: "5432"
+      ERP_DB_NAME: ${POSTGRES_DB:-erp}
+      SUPERSET_DB_USER: ${SUPERSET_DB_USER:-superset_ro}
+      SUPERSET_DB_PASSWORD: ${SUPERSET_DB_PASSWORD:?Thiếu SUPERSET_DB_PASSWORD trong .env}
+    ports:
+      - "127.0.0.1:8089:8088"
+    volumes:
+      - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
+      - ./superset/bootstrap.sh:/app/bootstrap.sh:ro
+      - ./superset/assets:/app/assets
+      - superset_home:/app/superset_home
+    entrypoint: ["/bin/bash", "/app/bootstrap.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8088/health"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 90s
+    restart: unless-stopped
+
+volumes:
+  erp_pgdata:
+  superset_metadata:
+  superset_redis:
+  superset_home:

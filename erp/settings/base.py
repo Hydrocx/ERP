@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "forecast",
     "reports",
     "dashboard",
+    "analytics",
     "home",
     "search",
     "wagtail.contrib.settings",
@@ -58,6 +59,9 @@ INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
+    # Bắt buộc khi chạy trên PostgreSQL: backend tìm kiếm của Wagtail dùng GinIndex.
+    # Trên SQLite app này không có tác dụng gì (migration của Wagtail xét theo vendor).
+    "django.contrib.postgres",
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
@@ -214,6 +218,10 @@ if env("MAIL_BACKEND", default="console") == "smtp":
 else:
     MAILERS = {"default": {"BACKEND": "django.core.mail.backends.console.EmailBackend"}}
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="erp@localhost")
+
+# Apache Superset đọc dữ liệu qua role Postgres chỉ-đọc này (xem analytics/README hoặc docs/SUPERSET.md)
+SUPERSET_DB_USER = env("SUPERSET_DB_USER", default="superset_ro")
+SUPERSET_DB_PASSWORD = env("SUPERSET_DB_PASSWORD", default="")
 
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "dashboard:home"

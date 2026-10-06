@@ -46,6 +46,7 @@ và luôn có phương án dự phòng khi AI không khả dụng.
 | `ai` | AISettings (Wagtail Settings), AICallLog, `client.py` (OpenAI), `prompts.py`, `services.py` (F1, F2, phân tích SP), `assistant.py` (F3) |
 | `reports` | `kpis.py`, ReportIndexPage / AIReportPage (Wagtail Page + StreamField), `generate_weekly_report` |
 | `dashboard` | Giao diện người dùng `/app/`, panel cảnh báo trên trang chủ admin |
+| `analytics` | Lớp dữ liệu cho BI: SQL view trong schema `analytics`, spec dashboard, lệnh `create_analytics_views` / `provision_superset` / `verify_analytics` / `copy_sqlite_to_postgres` (xem [SUPERSET.md](SUPERSET.md)) |
 
 ## 3. Mô hình dữ liệu
 
@@ -149,6 +150,10 @@ Giới hạn đã biết: nhu cầu đo bằng đơn đã xác nhận/giao nên 
 | Thủ kho | Xem danh mục/đơn, nhận hàng PO, xuất kho giao SO, điều chỉnh/chuyển kho |
 | Mua hàng | Sản phẩm, NCC, tạo/sửa PO nháp, xem & duyệt đề xuất nhập hàng (tạo PO nháp), chạy dự báo |
 | Bán hàng | Khách hàng, tạo/sửa/xác nhận SO |
+
+Apache Superset kết nối bằng role PostgreSQL riêng `superset_ro`: chỉ đọc, bị thu hồi
+quyền trên schema `public`, chỉ `SELECT` được trên schema `analytics` (view đã che email,
+điện thoại khách hàng và không chứa nội dung prompt gửi cho AI).
 
 Toàn bộ `/app/` và cây trang báo cáo (`/bao-cao/`, dùng PageViewRestriction của Wagtail) yêu cầu đăng nhập.
 Tồn kho, sổ kho, dự báo, đề xuất và log AI là **chỉ xem** trong admin (ReadOnlyPermissionPolicy). Chỉ chứng từ Nháp

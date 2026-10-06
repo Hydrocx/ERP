@@ -15,6 +15,8 @@
 | `HTTPS`, `SECURE_SSL_REDIRECT` | không | `False` | Bật khi chạy sau proxy TLS |
 | `GUNICORN_WORKERS` | không | 3 | |
 | `LOG_LEVEL` | không | `WARNING` | |
+| `SUPERSET_DB_USER` / `SUPERSET_DB_PASSWORD` | khi dùng Superset | `superset_ro` / – | Role PostgreSQL chỉ-đọc mà Superset dùng |
+| `SUPERSET_SECRET_KEY`, `SUPERSET_ADMIN_USER`, `SUPERSET_ADMIN_PASSWORD`, `SUPERSET_META_PASSWORD` | khi dùng Superset | – | Xem [SUPERSET.md](SUPERSET.md) |
 | `MAIL_BACKEND` | không | `console` | `smtp` để gửi email thật (thông báo workflow duyệt báo cáo) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_USE_TLS`, `DEFAULT_FROM_EMAIL` | khi `MAIL_BACKEND=smtp` | | |
 
