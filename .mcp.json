@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "superset": {
+      "command": ".venv/Scripts/mcp-superset.exe",
+      "args": ["--transport", "stdio", "--env-file", ".env.mcp"]
+    }
+  }
+}

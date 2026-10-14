@@ -11,6 +11,7 @@ import math
 import random
 from collections import defaultdict
 from datetime import datetime, time, timedelta
+from itertools import accumulate
 from decimal import Decimal
 
 from django.contrib.auth import get_user_model
@@ -31,6 +32,26 @@ from sales import services as sales
 from sales.models import SalesOrder, SalesOrderLine
 
 U = Product.Unit
+
+# Customer churn: this share of customers (outside the 10 biggest) stop buying at a random day;
+# their order rate fades over CHURN_FADE_DAYS first.
+CHURN_SHARE = 0.30
+CHURN_FADE_DAYS = 60
+
+# Products that tend to be bought together (pairs are symmetric). AFFINITY_STRENGTH is the chance
+# that a product joins the basket its partner is already in instead of a random basket.
+AFFINITY_PAIRS = [
+    ("DU-NGOT", "BK-SNACK"),
+    ("DU-NKHOANG", "TP-MITOM"),
+    ("HM-NGIAT", "HM-RUACHEN"),
+    ("HM-DAUGOI", "HM-SUATAM"),
+    ("VPP-A4", "VPP-BUTBI"),
+    ("TP-DAUAN", "TP-NUOCMAM"),
+    ("DU-CF3IN1", "BK-QUYBO"),
+    ("GD-NOICOM", "TP-GAO5KG"),
+]
+AFFINITY = {**dict(AFFINITY_PAIRS), **{b: a for a, b in AFFINITY_PAIRS}}
+AFFINITY_STRENGTH = 0.65
 
 # Monthly demand multipliers (Jan..Dec)
 SEASONALITY = {
@@ -157,9 +178,9 @@ class Command(BaseCommand):
     help = "Tạo dữ liệu mẫu bằng cách mô phỏng hoạt động kinh doanh trong N ngày."
 
     def add_arguments(self, parser):
-        parser.add_argument("--days", type=int, default=400, help="Số ngày mô phỏng (mặc định 400, đủ để có dữ liệu cùng kỳ năm trước)")
+        parser.add_argument("--days", type=int, default=730, help="Số ngày mô phỏng (mặc định 730 = 2 năm, đủ để mô hình học mùa vụ theo năm)")
         parser.add_argument("--seed", type=int, default=42, help="Random seed để tái lập dữ liệu")
-        parser.add_argument("--customers", type=int, default=80)
+        parser.add_argument("--customers", type=int, default=300)
         parser.add_argument("--reset", action="store_true", help="Xóa toàn bộ dữ liệu ERP trước khi tạo")
         parser.add_argument("--admin", action="store_true",
                             help="Tạo superuser admin/admin123 (chỉ dùng cho môi trường dev)")
@@ -256,6 +277,7 @@ class Command(BaseCommand):
             ))
         # A few large customers place most orders (Pareto-like)
         self.customer_weights = [1 / (i + 1) ** 0.8 for i in range(len(self.customers))]
+        self.churn_at = {}  # customer index -> day the customer stops buying (set in simulate)
         self.stdout.write(f"Master data: {len(self.warehouses)} kho, {len(SUPPLIERS)} NCC, "
                           f"{len(self.products)} sản phẩm, {len(self.customers)} khách hàng")
 
@@ -272,6 +294,8 @@ class Command(BaseCommand):
         self.available = {}          # (product_id, warehouse_id) -> available qty (mirror of DB)
         self.on_order = defaultdict(int)
         self.arrivals = []            # (arrival_date, po, partial_first)
+        self.plan_churn(start, today, days)
+        self._weights_day = None
 
         for wh in self.warehouses:
             scale = self.wh_scale[wh.pk]
@@ -292,6 +316,38 @@ class Command(BaseCommand):
                 self.stdout.write(f"  {day:%Y-%m-%d}: {SalesOrder.objects.count()} SO, "
                                   f"{PurchaseOrder.objects.count()} PO")
             day += timedelta(days=1)
+
+    def plan_churn(self, start, today, days):
+        """Some customers stop buying: their order rate fades over CHURN_FADE_DAYS, then drops to zero.
+
+        The ten largest customers never churn so revenue stays stable. This gives the churn model a
+        real behavioural signal (falling frequency, growing recency) instead of pure randomness.
+        """
+        self.churn_at = {}
+        if days < 180:
+            return
+        eligible = list(range(10, len(self.customers)))
+        self.rng.shuffle(eligible)
+        for idx in eligible[: int(len(eligible) * CHURN_SHARE)]:
+            offset = self.rng.randint(120, days - 20)
+            self.churn_at[idx] = start + timedelta(days=offset)
+
+    def customer_cum_weights(self, day):
+        """Cumulative purchase weights for `day` (cached per day)."""
+        if self._weights_day != day:
+            weights = []
+            for idx, base in enumerate(self.customer_weights):
+                churn_day = self.churn_at.get(idx)
+                if churn_day is not None:
+                    left = (churn_day - day).days
+                    if left <= 0:
+                        base = 0.0
+                    elif left < CHURN_FADE_DAYS:
+                        base *= 0.15 + 0.85 * left / CHURN_FADE_DAYS
+                weights.append(base)
+            self._cum_weights = list(accumulate(weights))
+            self._weights_day = day
+        return self._cum_weights
 
     def receive_arrivals(self, day):
         pending = []
@@ -322,6 +378,7 @@ class Command(BaseCommand):
 
         n_orders = max(1, poisson(rng, 6 * factor))
         baskets = [defaultdict(int) for _ in range(n_orders)]
+        placed = {}  # sku -> basket index, used to make affine products land in the same basket
         for p in self.products:
             lam = self.base_demand[p.pk] * self.seasonality[p.pk][day.month - 1] * factor
             demand = poisson(rng, lam)
@@ -330,14 +387,21 @@ class Command(BaseCommand):
             if demand <= 0:
                 continue
             parts = [demand] if demand < 10 or rng.random() < 0.5 else [demand // 2, demand - demand // 2]
+            partner_basket = placed.get(AFFINITY.get(p.sku))
             for part in parts:
-                baskets[rng.randrange(n_orders)][p] += part
+                if partner_basket is not None and rng.random() < AFFINITY_STRENGTH:
+                    target = partner_basket
+                else:
+                    target = rng.randrange(n_orders)
+                baskets[target][p] += part
+                placed.setdefault(p.sku, target)
             self.available[key] -= demand
 
+        cum_weights = self.customer_cum_weights(day)
         for basket in baskets:
             if not basket:
                 continue
-            customer = rng.choices(self.customers, weights=self.customer_weights)[0]
+            customer = rng.choices(self.customers, cum_weights=cum_weights)[0]
             so = SalesOrder(customer=customer, warehouse=wh, order_date=day, created_by=self.user)
             so.lines = [SalesOrderLine(product=p, quantity=q, unit_price=p.sale_price)
                         for p, q in basket.items()]

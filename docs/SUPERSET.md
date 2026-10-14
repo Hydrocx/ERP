@@ -112,8 +112,9 @@ python manage.py setup_demo
 python manage.py create_analytics_views
 ```
 
-Lệnh này tạo schema `analytics` với 13 view, tạo role `superset_ro` (nếu chưa
-có) và cấp đúng quyền chỉ-đọc như mục 2.
+Lệnh này tạo schema `analytics` với 13 view nghiệp vụ và 7 view kết quả AI
+(`mart_ai_*`, xem [AI_ANALYTICS.md](AI_ANALYTICS.md)), tạo role `superset_ro`
+(nếu chưa có) và cấp đúng quyền chỉ-đọc như mục 2.
 
 ### 3.4 Tạo dataset, biểu đồ và dashboard
 
@@ -124,9 +125,10 @@ python manage.py provision_superset
 Lệnh gọi REST API của Superset để tạo (hoặc cập nhật nếu đã có):
 
 * 1 kết nối CSDL — SQLAlchemy URI dùng role chỉ-đọc;
-* 13 dataset ứng với 13 view;
-* 13 biểu đồ;
-* 1 dashboard `Mini ERP · Kinh doanh & CRM`.
+* 20 dataset ứng với 20 view;
+* 29 biểu đồ;
+* 2 dashboard: `Mini ERP · Kinh doanh & CRM` (13 biểu đồ) và `Mini ERP · AI Insights`
+  (16 biểu đồ, cần chạy `python manage.py run_ml_pipeline` trước để có dữ liệu).
 
 Mở <http://127.0.0.1:8089/superset/dashboard/mini-erp-crm/> và đăng nhập bằng
 `SUPERSET_ADMIN_USER` / `SUPERSET_ADMIN_PASSWORD`.
@@ -140,6 +142,7 @@ python manage.py verify_analytics
 Lệnh đối chiếu 11 chỉ số giữa view SQL (Superset đọc) và `reports/kpis.py`
 (ERP tính bằng Django ORM): doanh thu, giá vốn, lợi nhuận gộp, số đơn đã giao,
 giá trị tồn kho, số vị trí hết hàng, số khách hàng, doanh thu trọn đời…
+Khi đã có kết quả AI, lệnh kiểm tra thêm 7 chỉ số của các view `mart_ai_*`.
 Lệch quá 0,01 là trả về mã lỗi khác 0, nên có thể đưa vào CI.
 
 ## 4. Lớp dữ liệu analytics

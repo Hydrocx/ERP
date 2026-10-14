@@ -15,7 +15,10 @@ from django.core.management.base import BaseCommand, CommandError
 from django.db import connection
 from django.utils import timezone
 
+from django.db.models import Sum
+
 from catalog.models import Customer
+from insights.models import BasketRule, CustomerScore, ModelMetric, ModelRun, SalesForecast
 from inventory.models import StockLevel
 from reports.kpis import inventory_snapshot, sales_summary
 from sales.models import SalesOrder
@@ -42,6 +45,7 @@ class Command(BaseCommand):
             *self._sales_checks(start, end),
             *self._inventory_checks(),
             *self._customer_checks(),
+            *self._ai_checks(),
         ]
 
         width = max(len(name) for name, _, _ in checks)
@@ -108,6 +112,38 @@ class Command(BaseCommand):
         ]
 
     # ------------------------------------------------------------------ nhóm 3
+    # ------------------------------------------------------------------ nhóm 4
+    def _ai_checks(self):
+        """Kết quả mô hình AI (insights_*) phải khớp với view mà Superset đọc và với dữ liệu nghiệp vụ."""
+        if not ModelRun.objects.filter(task="forecast", is_current=True).exists():
+            self.stdout.write(self.style.WARNING(
+                "Chưa có kết quả AI hiện hành, bỏ qua nhóm đối chiếu AI (chạy: python manage.py run_ml_pipeline)\n"))
+            return []
+        orm_forecast = SalesForecast.objects.filter(run__is_current=True)
+        backtest = orm_forecast.filter(scope="TOTAL", is_champion=True, kind="backtest")
+        dates = list(backtest.values_list("date", flat=True))
+        actual_in_ai_table = backtest.aggregate(s=Sum("actual"))["s"] or 0
+        revenue_in_mart = _one("""
+            SELECT COALESCE(sum(revenue), 0) FROM analytics.mart_daily_sales WHERE sales_date = ANY(%s)
+        """, [dates])[0]
+        high = CustomerScore.objects.filter(run__is_current=True, risk_band="Cao")
+        return [
+            ("AI: dòng dự báo (view Superset)", orm_forecast.count(),
+             _one("SELECT count(*) FROM analytics.mart_ai_forecast")[0]),
+            ("AI: số thực tế dự báo = doanh thu mart_daily_sales", actual_in_ai_table, revenue_in_mart),
+            ("AI: khách hàng được chấm điểm", CustomerScore.objects.filter(run__is_current=True).count(),
+             _one("SELECT count(*) FROM analytics.mart_ai_customer_score")[0]),
+            ("AI: khách nguy cơ cao", high.count(),
+             _one("SELECT count(*) FROM analytics.mart_ai_customer_score WHERE risk_band = 'Cao'")[0]),
+            ("AI: doanh số 365 ngày của nhóm nguy cơ cao", high.aggregate(s=Sum("monetary_365"))["s"] or 0,
+             _one("SELECT COALESCE(sum(monetary_365), 0) FROM analytics.mart_ai_customer_score "
+                  "WHERE risk_band = 'Cao'")[0]),
+            ("AI: luật mua kèm", BasketRule.objects.filter(run__is_current=True).count(),
+             _one("SELECT count(*) FROM analytics.mart_ai_basket_rules")[0]),
+            ("AI: chỉ số mô hình hiện hành", ModelMetric.objects.filter(run__is_current=True).count(),
+             _one("SELECT count(*) FROM analytics.mart_ai_model_metrics")[0]),
+        ]
+
     def _customer_checks(self):
         orm_customers = Customer.objects.count()
         sql_customers = _one("SELECT count(*) FROM analytics.dim_customer")[0]

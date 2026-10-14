@@ -9,3 +9,4 @@ __pycache__/
 htmlcov/
 /docs/demo/*.webm
 /scripts/_raw/
+.env.mcp

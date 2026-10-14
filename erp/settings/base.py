@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "reports",
     "dashboard",
     "analytics",
+    "insights",
     "home",
     "search",
     "wagtail.contrib.settings",

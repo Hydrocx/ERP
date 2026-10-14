@@ -62,6 +62,15 @@ def test_check_numbers_flags_invented_values():
     assert len(warnings) == 2 and any("1,9" in w for w in warnings) and any("35" in w for w in warnings)
 
 
+def test_check_numbers_handles_signs_decimals_and_numbers_in_keys():
+    kpis = {"period": {"start": "2026-09-01", "end": "2026-09-07"},
+            "previous_period": {"start": "2026-08-25", "end": "2026-08-31"},
+            "change_pct": -4.3, "f1": 0.882, "revenue_at_risk_365": 1_068_600_000, "orders": 11_671}
+    text = ["Doanh thu giảm 4,3%, F1 đạt 0,882; 1,07 tỷ doanh số 365 ngày có nguy cơ; 11.671 đơn."]
+    assert check_numbers(text, kpis) == []
+    assert check_numbers(["Có 12.500 đơn."], kpis)                    # vẫn bắt số bịa
+
+
 def test_generate_report_fallback_creates_draft_in_workflow(sold, no_openai):
     user = get_user_model().objects.create_superuser("boss", "b@example.com", "pw")
     page = generate_report(DAY - timedelta(days=6), DAY, user=user)

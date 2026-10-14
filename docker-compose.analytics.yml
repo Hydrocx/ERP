@@ -97,6 +97,7 @@ services:
     volumes:
       - ./superset/superset_config.py:/app/pythonpath/superset_config.py:ro
       - ./superset/bootstrap.sh:/app/bootstrap.sh:ro
+      - ./superset/create_mcp_user.py:/app/create_mcp_user.py:ro
       - ./superset/assets:/app/assets
       - superset_home:/app/superset_home
     entrypoint: ["/bin/bash", "/app/bootstrap.sh"]

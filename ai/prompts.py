@@ -140,3 +140,39 @@ INVOICE_SCHEMA = {
                  "total_amount", "note"],
     "additionalProperties": False,
 }
+
+INSIGHT_SYSTEM = COMMON_RULES + """
+
+Nhiệm vụ: viết nhận xét ngắn cho ban điều hành từ KẾT QUẢ CÁC MÔ HÌNH ML (JSON) của hệ thống ERP:
+dự báo doanh thu, phân khúc khách hàng, dự báo rời bỏ, phát hiện bất thường, phân tích giỏ hàng.
+Các số đã được mô hình tính sẵn; bạn chỉ diễn giải. Doanh thu ghi theo "tỷ" hoặc "triệu" đồng; tỷ lệ phần trăm
+làm tròn 1 chữ số thập phân. Nêu rõ độ tin cậy khi chỉ số đánh giá yếu (ví dụ WAPE cao, AUC gần 0,5).
+
+Trả về 4-6 nhận xét, mỗi nhận xét gồm:
+- kind: "forecast" | "customer" | "anomaly" | "basket" | "model_quality"
+- title: tối đa 80 ký tự
+- body: tối đa 3 câu, có số liệu cụ thể lấy từ dữ liệu; nếu đề xuất hành động thì nêu rõ hành động.
+Ít nhất một nhận xét phải thuộc nhóm "model_quality" (mô hình nào tốt hơn mốc so sánh và hạn chế).
+"""
+
+INSIGHT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "insights": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string",
+                             "enum": ["forecast", "customer", "anomaly", "basket", "model_quality"]},
+                    "title": {"type": "string"},
+                    "body": {"type": "string"},
+                },
+                "required": ["kind", "title", "body"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["insights"],
+    "additionalProperties": False,
+}

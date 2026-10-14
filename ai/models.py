@@ -77,6 +77,7 @@ class AICallLog(models.Model):
         REPORT = "report", "Báo cáo"
         ASSISTANT = "assistant", "Trợ lý hỏi đáp"
         INVOICE = "invoice", "Đọc hóa đơn"
+        INSIGHT = "insight", "Nhận xét mô hình ML"
 
     wagtail_reference_index_ignore = True
 

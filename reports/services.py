@@ -101,9 +101,10 @@ SCALE = {"tỷ": 1e9, "tỉ": 1e9, "triệu": 1e6, "tr": 1e6, "nghìn": 1e3, "ng
 
 def _parse_number(raw):
     raw = raw.rstrip(".,")
-    if re.fullmatch(r"\d{1,3}(\.\d{3})+", raw):          # 1.234.567
+    # nhóm đầu bắt đầu bằng 0 ("0,882") là số thập phân, không phải phân tách hàng nghìn
+    if re.fullmatch(r"[1-9]\d{0,2}(\.\d{3})+", raw):     # 1.234.567
         return float(raw.replace(".", ""))
-    if re.fullmatch(r"\d{1,3}(,\d{3})+", raw):           # 1,234,567
+    if re.fullmatch(r"[1-9]\d{0,2}(,\d{3})+", raw):      # 1,234,567
         return float(raw.replace(",", ""))
     try:
         return float(raw.replace(",", "."))               # 1,25 or 1.25
@@ -119,7 +120,8 @@ def _kpi_numbers(obj, out):
     elif isinstance(obj, str):  # numbers inside names/dates, e.g. "Hạt điều 500g", "2026-09-21"
         out.extend(float(n) for n in re.findall(r"\d+(?:\.\d+)?", obj))
     elif isinstance(obj, dict):
-        for v in obj.values():
+        for k, v in obj.items():
+            _kpi_numbers(k, out)   # khóa mang số có nghĩa, vd. "revenue_at_risk_365" -> "365 ngày"
             _kpi_numbers(v, out)
     elif isinstance(obj, (list, tuple)):
         for v in obj:
@@ -129,7 +131,9 @@ def _kpi_numbers(obj, out):
 
 def check_numbers(texts, kpis, tolerance=0.02):
     """Return numbers mentioned in AI text that do not match any KPI value."""
-    known = _kpi_numbers(kpis, [])
+    # Văn bản diễn đạt dấu bằng chữ ("giảm 4,3%", "sụt 100%") và NUMBER_RE không bắt dấu "-",
+    # nên so với giá trị tuyệt đối của KPI.
+    known = [abs(k) for k in _kpi_numbers(kpis, [])]
     known_dates = set(re.findall(r"\d+", " ".join([kpis["period"]["start"], kpis["period"]["end"],
                                                     kpis["previous_period"]["start"],
                                                     kpis["previous_period"]["end"]])))

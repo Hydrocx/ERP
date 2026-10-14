@@ -20,6 +20,7 @@ dự phòng (công thức / mẫu) khi không có API key hoặc AI lỗi.
 | Phân quyền | 4 nhóm: Quản lý, Thủ kho, Mua hàng, Bán hàng (`setup_roles`) |
 | Vận hành | Nhật ký gọi AI (token, thời gian, lỗi), cấu hình AI trong Wagtail Settings, scheduler hằng ngày/tuần, Docker Compose |
 | **BI – Apache Superset** | PostgreSQL + Superset chạy bằng Docker; schema `analytics` gồm 13 view chỉ-đọc (dimension / fact / mart, có phân khúc khách hàng RFM); dashboard 13 biểu đồ tạo tự động qua REST API; lệnh đối chiếu số liệu với ORM |
+| **AI Analytics + Superset MCP** | App `insights`: 5 bài toán ML (dự báo doanh thu, phân khúc K-Means, dự báo rời bỏ, phát hiện bất thường, giỏ hàng), mỗi bài so sánh nhiều thuật toán với mốc so sánh bằng backtest; kết quả có phiên bản trong PostgreSQL → 7 view `mart_ai_*` → dashboard **AI Insights** 16 biểu đồ; LLM viết nhận xét có kiểm tra số; **`mcp-superset`** cho AI agent duyệt dữ liệu và tạo biểu đồ với tài khoản quyền hạn chế |
 
 ## Chạy nhanh
 
@@ -29,7 +30,7 @@ python -m venv .venv
 pip install -r requirements-dev.txt
 copy .env.example .env                      # AI_PROVIDER=openai|gemini + key tương ứng (không bắt buộc)
 
-python manage.py setup_demo                 # database + dữ liệu mẫu + tài khoản demo (~7 phút)
+python manage.py setup_demo                 # database + dữ liệu mẫu 2 năm + tài khoản demo (~10-15 phút trên SQLite)
                                             # nhanh hơn: setup_demo --quick (~2-3 phút, 60 ngày, không có mùa vụ)
 python manage.py runserver
 ```
@@ -39,7 +40,9 @@ python manage.py runserver
 ```bash
 docker compose -f docker-compose.analytics.yml up -d --build   # PostgreSQL 5433 + Superset 8089
 python manage.py migrate
-python manage.py copy_sqlite_to_postgres     # hoặc: python manage.py setup_demo
+python manage.py copy_sqlite_to_postgres     # chép dữ liệu từ db.sqlite3 (đã setup_demo) sang PostgreSQL
+# Không nên chạy seed_data trực tiếp trên PostgreSQL trong Docker (Windows): mỗi truy vấn có độ trễ mạng nên
+# 2 năm dữ liệu mất hơn 1 giờ; seed trên SQLite (~14 phút cho 500 khách) rồi chép sang chỉ mất vài phút.
 python manage.py create_analytics_views      # schema analytics + role chỉ-đọc
 python manage.py provision_superset          # dataset + biểu đồ + dashboard
 python manage.py verify_analytics            # đối chiếu số liệu với ORM
@@ -47,6 +50,23 @@ python manage.py verify_analytics            # đối chiếu số liệu với 
 
 Dashboard: <http://127.0.0.1:8089/superset/dashboard/mini-erp-crm/> ·
 chi tiết trong [docs/SUPERSET.md](docs/SUPERSET.md).
+
+### Phân tích AI và Superset MCP (TH2)
+
+```bash
+python manage.py run_ml_pipeline              # huấn luyện + đánh giá 5 bài toán, lưu kết quả (thêm --no-ai nếu không có key)
+python manage.py create_analytics_views       # cập nhật view mart_ai_*
+python manage.py provision_superset           # thêm dashboard "Mini ERP · AI Insights"
+
+# Superset MCP (mcp-superset trên PyPI, đã có trong requirements-dev.txt)
+copy .env.mcp.example .env.mcp                # đặt SUPERSET_PASSWORD cho tài khoản mcp_agent
+docker exec -e MCP_USERNAME=mcp_agent -e MCP_PASSWORD=<mật khẩu> erp_superset python /app/create_mcp_user.py
+python scripts/mcp_smoke_test.py --write      # kiểm tra kết nối, quyền, tạo/xóa thử 1 biểu đồ
+```
+
+Dashboard AI: <http://127.0.0.1:8089/superset/dashboard/mini-erp-ai-insights/>.
+Claude Code tự nạp MCP server từ `.mcp.json` khi mở dự án. Mô hình, kết quả đánh giá, cấu hình MCP và bảo mật:
+[docs/AI_ANALYTICS.md](docs/AI_ANALYTICS.md).
 
 > **Thành viên mới clone repo:** database (`db.sqlite3`) và file `.env` **không có trong git**, nên sau khi
 > `git clone`/`git pull` phải chạy `python manage.py setup_demo` một lần thì mới có dữ liệu và các tài khoản bên dưới.
@@ -65,14 +85,15 @@ Tài khoản dev: `admin / admin123` (superuser); `quanly`, `thukho`, `muahang`,
 
 | Lệnh | Mô tả |
 |---|---|
-| `seed_data [--days 400] [--reset] [--admin] [--seed 42]` | Mô phỏng kinh doanh qua chính các service (mùa vụ Tết/hè/tựu trường/Trung thu, tăng trưởng, hết hàng, NCC giao trễ) |
+| `seed_data [--days 730] [--customers 300] [--reset] [--admin] [--seed 42]` | Mô phỏng kinh doanh qua chính các service (mùa vụ Tết/hè/tựu trường/Trung thu, tăng trưởng, hết hàng, NCC giao trễ, khách rời bỏ, cặp sản phẩm hay mua kèm) |
 | `setup_roles [--demo-users]` | Tạo 4 nhóm quyền, quyền trang báo cáo, thêm Quản lý vào workflow duyệt |
 | `run_forecast [--date] [--no-ai]` | Dự báo, cập nhật ROP theo kho, tạo đề xuất nhập hàng, AI giải thích |
 | `generate_weekly_report [--start --end] [--user] [--no-ai]` | Tạo báo cáo (mặc định tuần trước) dạng trang nháp, gửi duyệt |
 | `ai_selftest` | Gọi thử từng tính năng AI với OpenAI thật (sau khi điền `OPENAI_API_KEY`) |
 | `create_analytics_views` | Tạo schema `analytics` (view cho Superset) + role Postgres chỉ-đọc |
 | `provision_superset` | Tạo kết nối / dataset / biểu đồ / dashboard trong Superset qua REST API |
-| `verify_analytics` | Đối chiếu số liệu view SQL với KPI tính bằng Django ORM |
+| `verify_analytics` | Đối chiếu số liệu view SQL với KPI tính bằng Django ORM (gồm kết quả AI) |
+| `run_ml_pipeline [--only forecast,churn] [--as-of] [--horizon 28] [--folds 3] [--no-ai]` | Chạy các mô hình ML, backtest, chọn champion, lưu kết quả có phiên bản, AI viết nhận xét |
 | `copy_sqlite_to_postgres` | Chuyển dữ liệu từ `db.sqlite3` sang PostgreSQL |
 | `run_scheduler [--once]` | Vòng lặp chạy dự báo hằng ngày và báo cáo thứ Hai (dùng trong Docker) |
 
@@ -82,9 +103,11 @@ Tài khoản dev: `admin / admin123` (superuser); `quanly`, `thukho`, `muahang`,
 pytest
 ```
 
-93 test: service tồn kho/mua/bán, công thức dự báo, guardrail AI, client OpenAI (giả lập: JSON schema, lỗi, log),
+136 test: service tồn kho/mua/bán, công thức dự báo, guardrail AI, client OpenAI (giả lập: JSON schema, lỗi, log),
 trợ lý với tool calling, đọc & khớp hóa đơn, KPI và kiểm tra số liệu báo cáo, workflow duyệt trang, admin action theo từng vai trò,
-toàn bộ trang frontend và lệnh seed. Test không gọi OpenAI thật.
+toàn bộ trang frontend, lệnh seed, các mô hình ML (backtest không rò rỉ dữ liệu, tìm lại quy luật cài sẵn) và pipeline AI
+(lưu kết quả, cách ly lỗi, view `mart_ai_*` khớp số liệu nghiệp vụ). Test không gọi OpenAI thật.
+Test của lớp analytics cần PostgreSQL (`DATABASE_URL`); trên SQLite chúng tự bỏ qua phần SQL.
 
 ## Demo
 
@@ -99,6 +122,10 @@ Dashboard Superset (BI) — số liệu đã được `verify_analytics` đối 
 
 ![Superset](docs/screenshots/20-superset-dashboard.png)
 
+Dashboard AI Insights (kết quả mô hình ML lưu trong PostgreSQL, đọc qua view `mart_ai_*`):
+
+![Superset AI Insights](docs/screenshots/22-superset-ai-insights.png)
+
 ## Tài liệu
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) – kiến trúc, ERD, luồng nghiệp vụ, thiết kế AI, công thức dự báo, phân quyền
@@ -106,11 +133,13 @@ Dashboard Superset (BI) — số liệu đã được `verify_analytics` đối 
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md) – hướng dẫn theo vai trò
 - [docs/DEMO_SCRIPT.md](docs/DEMO_SCRIPT.md) – kịch bản demo 5 phút
 - [docs/SUPERSET.md](docs/SUPERSET.md) – tích hợp Apache Superset: kiến trúc, bảo mật, lớp analytics, dashboard
+- [docs/AI_ANALYTICS.md](docs/AI_ANALYTICS.md) – báo cáo kỹ thuật TH2: luồng dữ liệu, mô hình ML, đánh giá, Superset MCP
 
 ## Công nghệ
 
 Python 3.11+ (đã chạy với 3.14) · Django 6.1 · Wagtail 8.0 · SQLite / PostgreSQL · OpenAI Chat Completions hoặc Google Gemini
-(qua endpoint tương thích OpenAI; JSON schema, function calling, vision) · HTMX · Chart.js · WhiteNoise · Gunicorn · Docker Compose · pytest
+(qua endpoint tương thích OpenAI; JSON schema, function calling, vision) · scikit-learn · numpy · Apache Superset · mcp-superset ·
+HTMX · Chart.js · WhiteNoise · Gunicorn · Docker Compose · pytest
 
 ## Cấu trúc
 
@@ -125,9 +154,10 @@ forecast/     engine (công thức), DemandForecast, ReorderSuggestion, run_fore
 ai/           AISettings, AICallLog, client OpenAI, prompts, services (F1/F2), assistant (F3)
 reports/      KPI, ReportIndexPage / AIReportPage, generate_weekly_report
 dashboard/    frontend /app/, panel admin
-analytics/    lớp dữ liệu cho Superset: SQL view, spec dashboard, lệnh provisioning
-superset/     Dockerfile, cấu hình và script khởi tạo Superset
-scripts/      record_demo.py (quay video demo bằng Playwright)
+analytics/    lớp dữ liệu cho Superset: SQL view, spec 2 dashboard, lệnh provisioning
+insights/     mô hình ML (forecasting, segmentation, churn, anomaly, basket), nhận xét LLM, pipeline, run_ml_pipeline
+superset/     Dockerfile, cấu hình, script khởi tạo Superset và tài khoản MCP
+scripts/      record_demo.py (quay video demo), mcp_smoke_test.py (kiểm tra Superset MCP)
 tests/        pytest
 docs/         tài liệu, video demo, ảnh chụp màn hình
 ```

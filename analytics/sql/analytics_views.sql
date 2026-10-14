@@ -381,3 +381,88 @@ GROUP BY 1, 2, 3, 4;
 
 COMMENT ON VIEW analytics.mart_ai_usage IS
     'Thống kê gọi AI (không chứa nội dung prompt/phản hồi)';
+
+-- =============================================================================
+-- KẾT QUẢ MÔ HÌNH AI / ML  (ghi bởi `python manage.py run_ml_pipeline`)
+-- =============================================================================
+-- Chỉ đọc lần chạy hiện hành (is_current) và thành công. Lịch sử các lần chạy nằm ở
+-- mart_ai_model_runs. Thông tin khách hàng lấy qua dim_customer nên email/điện thoại đã che.
+
+CREATE OR REPLACE VIEW analytics.mart_ai_model_runs AS
+SELECT
+    r.id                                                  AS run_id,
+    r.task,
+    r.algorithm,
+    r.status,
+    r.as_of,
+    (r.started_at AT TIME ZONE 'Asia/Ho_Chi_Minh')        AS started_at,
+    r.duration_s,
+    r.n_rows,
+    r.is_current
+FROM insights_modelrun r;
+
+COMMENT ON VIEW analytics.mart_ai_model_runs IS 'Lịch sử các lần chạy pipeline AI/ML';
+
+CREATE OR REPLACE VIEW analytics.mart_ai_model_metrics AS
+SELECT
+    m.id AS metric_id, r.id AS run_id, r.task, m.algorithm, m.scope, m.split, m.metric,
+    m.value, m.is_champion, r.as_of
+FROM insights_modelmetric m
+JOIN insights_modelrun r ON r.id = m.run_id
+WHERE r.is_current AND r.status = 'ok';
+
+COMMENT ON VIEW analytics.mart_ai_model_metrics IS
+    'Chỉ số đánh giá mô hình (WAPE, AUC, silhouette, F1...) của lần chạy hiện hành';
+
+CREATE OR REPLACE VIEW analytics.mart_ai_forecast AS
+SELECT
+    f.id AS forecast_id, f.scope_type, f.scope, f.algorithm, f.is_champion,
+    f.date AS forecast_date, f.kind, f.fold, f.actual, f.yhat, f.lower, f.upper, r.as_of
+FROM insights_salesforecast f
+JOIN insights_modelrun r ON r.id = f.run_id
+WHERE r.is_current AND r.status = 'ok';
+
+COMMENT ON VIEW analytics.mart_ai_forecast IS
+    'Dự báo doanh thu theo ngày. kind=backtest có số thực tế (actual), kind=future là dự báo tương lai';
+
+CREATE OR REPLACE VIEW analytics.mart_ai_customer_score AS
+SELECT
+    s.id AS score_id,
+    c.customer_id, c.customer_code, c.customer_name, c.email_masked, c.phone_masked,
+    s.as_of, s.recency_days, s.frequency_365, s.monetary_365,
+    s.cluster, s.segment, s.rule_segment, s.churn_prob, s.risk_band, s.driver
+FROM insights_customerscore s
+JOIN insights_modelrun r ON r.id = s.run_id AND r.is_current AND r.status = 'ok'
+JOIN analytics.dim_customer c ON c.customer_id = s.customer_id;
+
+COMMENT ON VIEW analytics.mart_ai_customer_score IS
+    'Phân khúc K-Means và xác suất rời bỏ trong 60 ngày tới của từng khách hàng';
+
+CREATE OR REPLACE VIEW analytics.mart_ai_anomaly AS
+SELECT
+    e.id AS event_id, e.date AS anomaly_date, e.scope AS warehouse_code, e.algorithm,
+    e.actual, e.expected, e.deviation_pct, e.score, e.severity
+FROM insights_anomalyevent e
+JOIN insights_modelrun r ON r.id = e.run_id
+WHERE r.is_current AND r.status = 'ok';
+
+CREATE OR REPLACE VIEW analytics.mart_ai_basket_rules AS
+SELECT
+    b.id AS rule_id, b.antecedent_sku, b.antecedent_name, b.consequent_sku, b.consequent_name,
+    b.antecedent_name || ' → ' || b.consequent_name AS rule_label,
+    b.pair_orders, b.support, b.confidence, b.lift
+FROM insights_basketrule b
+JOIN insights_modelrun r ON r.id = b.run_id
+WHERE r.is_current AND r.status = 'ok';
+
+CREATE OR REPLACE VIEW analytics.mart_ai_insight AS
+SELECT
+    i.id AS insight_id, i.kind, i.title, i.body, i.generated_by_ai,
+    COALESCE(jsonb_array_length(i.warnings), 0) AS warning_count,
+    (i.created_at AT TIME ZONE 'Asia/Ho_Chi_Minh') AS created_at
+FROM insights_aiinsight i
+JOIN insights_modelrun r ON r.id = i.run_id
+WHERE r.is_current AND r.status = 'ok';
+
+COMMENT ON VIEW analytics.mart_ai_insight IS
+    'Nhận xét bằng ngôn ngữ tự nhiên do LLM (hoặc mẫu) viết từ kết quả các mô hình';

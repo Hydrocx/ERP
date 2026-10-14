@@ -33,7 +33,7 @@ class Command(BaseCommand):
             self.step("Đã có dữ liệu mẫu, bỏ qua (dùng --reset để tạo lại)")
             self._ensure_admin()
         else:
-            days = 60 if opts["quick"] else 400
+            days = 60 if opts["quick"] else 730
             self.step(f"Tạo dữ liệu mẫu {days} ngày (có thể mất vài phút)")
             call_command("seed_data", days=days, admin=True, reset=opts["reset"])
 

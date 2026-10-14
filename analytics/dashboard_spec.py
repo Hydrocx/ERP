@@ -24,6 +24,14 @@ DATASETS = [
     "dim_product",
     "dim_warehouse",
     "dim_supplier",
+    # Kết quả mô hình AI / ML (xem docs/AI_ANALYTICS.md)
+    "mart_ai_model_runs",
+    "mart_ai_model_metrics",
+    "mart_ai_forecast",
+    "mart_ai_customer_score",
+    "mart_ai_anomaly",
+    "mart_ai_basket_rules",
+    "mart_ai_insight",
 ]
 
 

@@ -9,7 +9,7 @@ Luồng dữ liệu:
         -> Superset Database "Mini ERP (analytics)"  (role superset_ro)
         -> Dataset cho từng view
         -> Chart
-        -> Dashboard "Mini ERP · Kinh doanh & CRM"
+        -> Dashboard "Mini ERP · Kinh doanh & CRM" và "Mini ERP · AI Insights"
 """
 
 import json
@@ -18,6 +18,7 @@ import os
 from django.core.management.base import BaseCommand, CommandError
 
 from analytics import dashboard_spec as spec
+from analytics.dashboards import ALL_CHARTS, DASHBOARDS
 from analytics.superset_api import SupersetClient, SupersetError
 
 
@@ -51,13 +52,13 @@ class Command(BaseCommand):
             database_id = self._database(client, opts)
             datasets = self._datasets(client, database_id)
             charts = self._charts(client, datasets)
-            url = self._dashboard(client, charts)
+            urls = [self._dashboard(client, charts, dashboard) for dashboard in DASHBOARDS]
         except SupersetError as exc:
             raise CommandError(str(exc)) from exc
 
-        self.stdout.write(self.style.SUCCESS(
-            f"\nHoàn tất. Mở dashboard: {opts['url']}{url}"
-        ))
+        self.stdout.write(self.style.SUCCESS("\nHoàn tất. Mở dashboard:"))
+        for url in urls:
+            self.stdout.write(f"  {opts['url']}{url}")
 
     # ------------------------------------------------------------------ bước 1
     def _database(self, client, opts):
@@ -108,7 +109,7 @@ class Command(BaseCommand):
     def _charts(self, client, datasets):
         self.stdout.write("Biểu đồ:")
         result = {}
-        for chart in spec.CHARTS:
+        for chart in ALL_CHARTS:
             dataset_id = datasets[chart["dataset"]]
             params = {
                 "datasource": f"{dataset_id}__table",
@@ -135,11 +136,11 @@ class Command(BaseCommand):
         return result
 
     # ------------------------------------------------------------------ bước 4
-    def _dashboard(self, client, charts):
-        position = _build_position(charts)
+    def _dashboard(self, client, charts, dashboard):
+        position = _build_position(charts, dashboard)
         payload = {
-            "dashboard_title": spec.DASHBOARD_TITLE,
-            "slug": spec.DASHBOARD_SLUG,
+            "dashboard_title": dashboard["title"],
+            "slug": dashboard["slug"],
             "published": True,
             "position_json": json.dumps(position, ensure_ascii=False),
             "json_metadata": json.dumps({
@@ -150,33 +151,33 @@ class Command(BaseCommand):
                 "default_filters": "{}",
             }),
         }
-        existing = client.find("dashboard", "slug", spec.DASHBOARD_SLUG)
+        existing = client.find("dashboard", "slug", dashboard["slug"])
         if existing:
             client.put(f"/api/v1/dashboard/{existing}", payload)
-            self.stdout.write(f"Dashboard: cập nhật #{existing}")
+            self.stdout.write(f"Dashboard '{dashboard['title']}': cập nhật #{existing}")
             dashboard_id = existing
         else:
             dashboard_id = client.post("/api/v1/dashboard/", payload)["id"]
-            self.stdout.write(f"Dashboard: tạo mới #{dashboard_id}")
+            self.stdout.write(f"Dashboard '{dashboard['title']}': tạo mới #{dashboard_id}")
 
         # Gắn biểu đồ vào dashboard (quan hệ nhiều-nhiều, position_json chưa đủ)
-        for chart_id in charts.values():
-            client.put(f"/api/v1/chart/{chart_id}", {"dashboards": [dashboard_id]})
-        return f"/superset/dashboard/{spec.DASHBOARD_SLUG}/"
+        for chart in dashboard["charts"]:
+            client.put(f"/api/v1/chart/{charts[chart['name']]}", {"dashboards": [dashboard_id]})
+        return f"/superset/dashboard/{dashboard['slug']}/"
 
 
-def _build_position(charts):
+def _build_position(charts, dashboard):
     """Dựng cây bố cục của Superset: ROOT -> GRID -> ROW -> CHART."""
     position = {
         "DASHBOARD_VERSION_KEY": "v2",
         "ROOT_ID": {"type": "ROOT", "id": "ROOT_ID", "children": ["GRID_ID"]},
         "GRID_ID": {"type": "GRID", "id": "GRID_ID", "children": [], "parents": ["ROOT_ID"]},
         "HEADER_ID": {"type": "HEADER", "id": "HEADER_ID",
-                      "meta": {"text": spec.DASHBOARD_TITLE}},
+                      "meta": {"text": dashboard["title"]}},
     }
-    by_name = {c["name"]: c for c in spec.CHARTS}
+    by_name = {c["name"]: c for c in dashboard["charts"]}
 
-    for row_index, row in enumerate(spec.ROWS, start=1):
+    for row_index, row in enumerate(dashboard["rows"], start=1):
         row_id = f"ROW-{row_index}"
         position["GRID_ID"]["children"].append(row_id)
         position[row_id] = {
@@ -184,9 +185,9 @@ def _build_position(charts):
             "parents": ["ROOT_ID", "GRID_ID"],
             "meta": {"background": "BACKGROUND_TRANSPARENT"},
         }
-        for name in row:
+        for col_index, name in enumerate(row, start=1):
             chart = by_name[name]
-            chart_id = f"CHART-{_slug(name)}"
+            chart_id = f"CHART-{row_index}-{col_index}"
             position[row_id]["children"].append(chart_id)
             position[chart_id] = {
                 "type": "CHART", "id": chart_id, "children": [],
